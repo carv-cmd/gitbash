@@ -2,33 +2,14 @@
 
 
 PROGNAME="${0##*/}"
-_GITNAME="$(git config --get user.name)"
-_LOCAL_GITS="${HOME}/git-repos"
-
 _GITBASH="${0%/*}"
+_GITNAME="$(git config --get user.name)"
 _GITCOM="${_GITBASH}/git-commits.sh"
+_LOCAL_GITS="${HOME}/git-repos"
 
 # For complex filtering, uncomment and modify $_FILTER_WITH.
 # Passed complete Graphql JSON response string for parsing.
 _FILTER_WITH= #"${_GITBASH}/filter-repos.py"
-
-#Commit_repo () {
-#	# Commit current repo before pushing upstream.
-#	echo 'old git-commit func exiting'; exit
-#	_GITIGNORE="${_GITBASH}/template.gitignore"
-#	local _cmsg="${2}"
-#	local _cwd="$(pwd)"
-#	[ ! -e "${_cwd}/README.md" ] &&
-#		echo "# ${_dirname}" >> 'README.md'
-#	[ ! -e "${_cwd}/.gitignore" ] && 
-#		echo "cp "${_GITIGNORE}" .gitignore"
-#	local _tracking="$(git status --short)"
-#	echo -e "\n${_tracking}\n"
-#	Prompt_user 'Commit current state?' && {
-#		echo "git add ." &&
-#		echo "git commit -m CommitState:\n${_tracking}";
-#	} || return 1
-#}
 
 
 Usage () {
