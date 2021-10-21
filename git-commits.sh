@@ -33,6 +33,7 @@ Prog_error () {
 	ERR['token']='unknown parameter'
 	ERR['noAdd']='`git add` failed'
 	ERR['noGit']='./.git does not exist in directory'
+	ERR['push']='git push upstream failed'
 	echo -e "\nraised: ${ERR[${1}]}"
 	unset 'ERR'
 	exit 1
@@ -138,7 +139,10 @@ Main_loop () {
 	fi
 
 	echo
-	git commit -m "${COMMIT_MSG}"
+	git commit -m "${COMMIT_MSG}" && 
+		(( ${_SETUP['push']} )) && {
+		git push || Prog_error 'push'
+	}
 }
 
 Parse_args () {
@@ -150,6 +154,9 @@ Parse_args () {
 			-m | --cmsg )
 				shift
 				_SETUP['cmsg']="${1}"
+				;;
+			-p | --push )
+				_SETUP['push']=1
 				;;
 			-q | --quiet )
 				_SETUP['quiet']=1
