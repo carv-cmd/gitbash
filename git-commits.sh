@@ -2,37 +2,40 @@
 
 # gitcom: Quick and simple `git (add|commit)` manager
 
+
 PROGNAME="${0##*/}"
 _GITBASH="${0%/*}/gitbash"
+
 
 Usage () {
 	cat <<- EOF
 
 ${PROGNAME} - the stupid git commit manager
 
-usage: ${PROGNAME} [ -b ] [ -m ] [ -q ] [ -t ]
+usage: ${PROGNAME} [ -m ] [ -q ] [ -t ]
 
 Examples:
-   ${PROGNAME} -t -q -b 'main' -m 'commitMsg'
-   ${PROGNAME} -q -t
-   ${PROGNAME} -m 'commitMsg'
+   ${PROGNAME} -q -t 'main' -m 'commitMsg'
+   ${PROGNAME} -t -m 'commitMsg'
+   ${PROGNAME} -q
 
- Where:
-   -b | --branch		= working branch to user
-   -m | --cmsg			= commit message (git commit -m '')
-   -q | --quiet			= dont prompt user before making changes (use wisely)
-   -t | --templates		= generate README.md & .gitignore files if ! exist
+ Flags:
+   -m | --cmsg		= commit message (git commit -m '')
+   -q | --quiet		= dont prompt before 'add -> commit' (use wisely)
+   -t | --templates	= generate README.md & .gitignore files if ! exist
 
 EOF
 exit 1
 }
 
 Prog_error () {
-	echo
 	declare -A ERR
-	#ERR['']=''
+	ERR['token']='unknown parameter'
+	ERR['noAdd']='`git add` failed'
+	ERR['noGit']='.git ! exist in directory'
+	echo -e "\nraised: ${ERR[${1}]}"
 	unset 'ERR'
-	Usage
+	exit 1
 }
 
 Template_files () {
@@ -43,72 +46,79 @@ Template_files () {
 	local _IGNORE="${_CWD}/.gitignore"
 	local _GITIGNORE="${_GITBASH}/template.gitignore"
 
-	#echo -e "\n* CURDIR: ${_CWD}\n* README: ${_README}\n*.ignore: ${_IGNORE}\n"
 	[ ! -e "${_README}" ] &&
-		echo -e "echo '# ${_dirname}' >> ${_README}"
-		# echo "# ${_dirname}" >> "${_README}"
+		echo "# ${_dirname}" >> "${_README}"
 
 	[[ ! -e "${_IGNORE}" && -e "${_GITIGNORE}" ]] && 
-		echo "cp ${_GITIGNORE} .gitignore"
-		# cp "${_GITIGNORE}" .gitignore
+		cp "${_GITIGNORE}" .gitignore
 }
 
+Select_add () {
+	echo -e 'Enter on empty line indicates user is finished.\n'
 
-prompt_user () {
-	# `git add` prompter
+	declare -a _ADDER
+	while true; do
+		read -a REPLY -rep 'git adding: '
+		[[ ! "${REPLY}" ]] && 
+			break
+		for _valid in "${REPLY[@]}"; do
+			[ -e "${_valid}" ] && 
+				_ADDER+="${_valid} " || 
+				echo -e "\033[38;5;196mfile: doesn't exist: '${_valid}'\033[00m"
+			done
+	done
+
+	(( ${#_ADDER} )) && 
+		git add ${_ADDER[@]} || 
+		Prog_error 'noAdd'
+}
+
+Prompt_user () {
 
 	local _CTRL_ADD=
 	local _PROMPT='[ add -> commit ]:(y/n/[s]elect): '
+	git status --short; echo
 
-	git status --short && {
-		echo; read -p "${_PROMPT}" _response; echo
-	} || return 1
-
+	read -p "${_PROMPT}" _response
 	case "${_response}" in
 		y | yes ) 
-			#git add . || return 1
-			echo "git add . || return 1"
+			git add . || 
+				Prog_error 'noAdd'
 			;;
 		s | select )
-			read -p 'Add Files: ' _CTRL_ADD; echo
-			[ -n "${_CTRL_ADD}" ] && 
-				echo "git add "${_CTRL_ADD}" || return 1"
-			;;	
+			Select_add || 
+				Prog_error 'noAdd'
+			;;
 		* )
-			return 1
+			Prog_error 'noAdd'
 			;;
 	esac
 }
 
-
-main_loop () {
-
+Main_loop () {
+	
 	local _status=
+	local _cmsg="${_SETUP['cmsg']}"
+
 	readarray -d '\n' _status < <(git status --short || false) 
-	[ -z "${_status}" ] && return 1
+	[[ "${_status}" ]] || Prog_error 'noGit'
 
-	[[ "${SETUP['templates']}" ]] && 
-		Template_files
+	(( ${_SETUP['templates']} )) && Template_files
+	(( ${_SETUP['quiet']} )) && git add . || { 
+		Prompt_user; echo; 
+	}
 
-	if [[ "${SETUP['quiet']}" ]]; then
-		echo "git add ."
-		# git add .
-	else
-		prompt_user || exit 1
+	if [ -z "${_cmsg}" ]; then	
+		printf -v _cmsg "\nPreStats:\n%s\nPostStats:\n%s\n" \
+			"${_status}" \
+			"$(git status --short)"
 	fi
 
-	[ -z "${SETUP['msg']}" ] && 
-		_msg="\n\n${_status}\nPOST.ADD:\n$(git status --short)"
-
-	echo -e "\ngit commit -m '${_msg}'\n" 
-	# git commit -m "${_msg}"
+	git commit -m "${_cmsg}"
 }
 
-
-parse_args () {
+Parse_args () {
 	declare -A _SETUP
-	local _msg= 
-	local _quiet=
 
 	while [ -n "${1}" ]; do
 		case "${1}" in
@@ -117,21 +127,23 @@ parse_args () {
 				_SETUP['cmsg']="${1}"
 				;;
 			-q | --quiet )
-				_SETUP['quiet']=0
+				_SETUP['quiet']=1
 				;;
 			-t | --templates )
-				_SETUP['templates']=0
+				_SETUP['templates']=1
+				;;
+			-h | --help )
+				Usage
 				;;
 			* ) 
-				 Usage
+				Prog_error 'token'
 				;;
 		esac
 		shift
 	done
-	main_loop "${_SEUTP}"
+
+	Main_loop "${_SEUTP}"
 }
 
-[ -z "${@}" ] && 
-	Usage || 
-	parse_args "${@}"
+Parse_args "${@}"
 

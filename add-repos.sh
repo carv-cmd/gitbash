@@ -3,13 +3,32 @@
 
 PROGNAME="${0##*/}"
 _GITNAME="$(git config --get user.name)"
-_LOCAL_GIT_DIR="${HOME}/git-repos"
-_GITBASH="${0%/*}/gitbash"
-_GITIGNORE="${_GITBASH}/template.gitignore"
-_GITCOMMIT="${_GITBASH}/git-commits.sh"
+_LOCAL_GITS="${HOME}/git-repos"
+
+_GITBASH="${0%/*}"
+_GITCOM="${_GITBASH}/git-commits.sh"
+
 # For complex filtering, uncomment and modify $_FILTER_WITH.
 # Passed complete Graphql JSON response string for parsing.
 _FILTER_WITH= #"${_GITBASH}/filter-repos.py"
+
+#Commit_repo () {
+#	# Commit current repo before pushing upstream.
+#	echo 'old git-commit func exiting'; exit
+#	_GITIGNORE="${_GITBASH}/template.gitignore"
+#	local _cmsg="${2}"
+#	local _cwd="$(pwd)"
+#	[ ! -e "${_cwd}/README.md" ] &&
+#		echo "# ${_dirname}" >> 'README.md'
+#	[ ! -e "${_cwd}/.gitignore" ] && 
+#		echo "cp "${_GITIGNORE}" .gitignore"
+#	local _tracking="$(git status --short)"
+#	echo -e "\n${_tracking}\n"
+#	Prompt_user 'Commit current state?' && {
+#		echo "git add ." &&
+#		echo "git commit -m CommitState:\n${_tracking}";
+#	} || return 1
+#}
 
 
 Usage () {
@@ -22,7 +41,7 @@ usage: ${PROGNAME} [ --new-repo ] [ -push-repo ] [ --query-remotes ]
 Where:
 ${PROGNAME} [ -n | --new-repo ] name (location|default)
   - Create new version controlled directory and push to Github.com.
-  - git-init defaults into $_LOCAL_GIT_DIR unless specified otherwise.
+  - git-init defaults into $_LOCAL_GITS unless specified otherwise.
   - An attempt to create ${LOCAL_GIT_DIR} will be made before exiting on 1.
 
 ${PROGNAME} [ -p | --push-repo ] (existing|cwd)
@@ -38,7 +57,7 @@ ${PROGNAME} [ -q | --query-remotes ]
 * If collision found, terminate w/o executing push upstream
 
 EOF
-unset '_LOCAL_GIT_DIR' '_GITIGNORE' '_GITNAME' 
+unset '_LOCAL_GITS' '_GITIGNORE' '_GITNAME' 
 exit 1
 }
 
@@ -49,10 +68,10 @@ Prog_error () {
 	ERR['isDir']='activated local clobber protection'
 	ERR['noDir']='local directory doesnt exist'
 	ERR['noGit']='required .git/ does not exists in directory'
-
-	echo -e "\nraised: \033[38;5;196;48;5;16m${ERR[${1}]} \033[00m"
+	ERR['gitCom']='must add and commit current state before pushing remote'
+	echo -e "\nraised: ${ERR[${1}]}"
 	unset 'ERR'
-	Usage
+	exit 1
 }
 
 Prompt_user () {
@@ -95,14 +114,13 @@ Check_remotes () {
 	# Implement complex filters in the script located at "$_GITBASH".
 	# Currently takes dirname and serialized json response as input.
 	if [[ "${_FILTER_WITH}" ]]; then 
-		python3 "${_FILTER_WITH}" -N "${_dirname}" -J "${_json_response}" || { 
-			Prog_error 'remClobber';
-		} && return 0
+		python3 "${_FILTER_WITH}" -N "${_dirname}" -J "${_json_response}" ||
+			Prog_error 'remClobber'
+		return 0
 	fi
 	
 	# If $_FILTER_FUNC unset; parse JSON response with shell expansion.
 	# Relevant reponses extracted from JSON array with: *[##array%%]*
-	# Search/Replace expansions operate on head then tail.
 	readarray -d ',' _remote_repos < <(\
 		_sliced="${_json_response##*[}";\
 		echo "${_sliced%%]*}")
@@ -117,60 +135,39 @@ Check_remotes () {
 
 Create_push_remote () {  
 	# Create basic public remote on GitHub.com
-	# Set main upstream establishing references with remote
-	gh repo create --public --confirm "${_dirname}" && 
-		git push --set-upstream origin "$(git branch --show-current)"
-}
-
-Commit_repo () {
-	# Commit current repo before pushing upstream.
-
-	local _cmsg="${2}"
-	local _cwd="$(pwd)"
-
-	[ ! -e "${_cwd}/README.md" ] &&
-		echo "# ${_dirname}" >> 'README.md'
-
-	[ ! -e "${_cwd}/.gitignore" ] && 
-		cp "${_GITIGNORE}" .gitignore
-
-	local _tracking="$(git status --short)"
-	echo -e "\n${_tracking}\n"
-
-	Prompt_user 'Commit current state?' && {
-		git add . &&
-		git commit -m "CommitState: ${_tracking}" &&
-		git status;
-	} || return 1
+	# Set main upstream establishing remote references.
+	echo "gh repo create --public --confirm "${_dirname}"" && 
+		echo 'git push --set-upstream origin "$(git branch --show-current)"'
 }
 
 Push_existing_repo () {
 	# Push local tracked repository to GitHub.
 
 	if [ -n "${1}" ]; then 
-		{ [ -e "${1}" ] && cd "${1}"; } || 
+		{ [ -e "${1}" ] && cd "${1}"; echo CWD: `pwd`; } || 
 			Prog_error 'noDir'
-	else
-		[[ "$(pwd)" =~ \.git$ ]] && cd ..
 	fi
 
+	[[ "$(pwd)" =~ \.git$ ]] && cd ..
 	local _repo="$(pwd)"
 	local _dirname="${_repo##*/}"
 	Check_remotes "${_dirname}"
 
-	[ ! -e "${_repo}/.git" ] && {
-		Prompt_user "git init ${_dirname}" &&
-		git init "$(pwd)";
-	} || Prog_error 'noGit'
+	if [ ! -e "${_repo}/.git" ]; then
+		Prompt_user "git init ${_dirname}" && 
+			echo "git init "$(pwd)"" || 
+			Prog_error 'noGit'
+	fi
 
-	Commit_repo "${_dirname}" &&
+	"${_GITCOM}" -t &&
 		git branch -m 'main' && 
-		Create_push_remote "${_dirname}"
+		Create_push_remote "${_dirname}" || 
+		Prog_error 'gitCom'
 }
 
 New_blank_repo () {
 	# Create bare local tracked repo, and push to GitHub remote
-	# Any new blank repos created in ${_LOCAL_GIT_DIR} unless specified
+	# Any new blank repos created in ${_LOCAL_GITS} unless specified
 
 	[ -z "${_dirname}" ] && 
 		Prog_error 'nullArg'
@@ -179,10 +176,10 @@ New_blank_repo () {
 	if [ -n "${1}" ]; then
 		_newdir="${1}/${_dirname}"
 	else
-		[ ! -e "${_LOCAL_GIT_DIR}" ] && 
-			mkdir "${_LOCAL_GIT_DIR}" && 
+		[ ! -e "${_LOCAL_GITS}" ] && 
+			mkdir "${_LOCAL_GITS}" && 
 			Prog_error 'noGit'
-		_newdir="${_LOCAL_GIT_DIR}/${_dirname}";
+		_newdir="${_LOCAL_GITS}/${_dirname}";
 		
 	fi
 
@@ -190,10 +187,10 @@ New_blank_repo () {
 		Prog_error 'isDir'
 
 	Check_remotes "${_dirname}" && {
-		git init "${_newdir}" && 
-		cd "${_newdir}" && 
-		git checkout -b 'main' &&
-		Commit_repo "${_dirname}" &&
+		echo "git init "${_newdir}"" && 
+		echo "cd ${_newdir}" && 
+		echo "git checkout -b 'main'" &&
+		"${_GITCOM}" -t -q &&
 		Create_push_remote "${_dirname}";
 	} || return 1
 }
