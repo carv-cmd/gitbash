@@ -2,10 +2,10 @@
 
 
 PROGNAME="${0##*/}"
-_GITBASH="${0%/*}"
-_GITNAME="$(git config --get user.name)"
+_GITBASH="${0%/*}/gitbash"
 _GITCOM="${_GITBASH}/git-commits.sh"
 _LOCAL_GITS="${HOME}/git-repos"
+_GITNAME="$(git config --get user.name)"
 
 # For complex filtering, uncomment and modify $_FILTER_WITH.
 # Passed complete Graphql JSON response string for parsing.
@@ -71,7 +71,7 @@ Prompt_user () {
 
 Query_remotes () {
 	# Query GH-graphql for remote repositories.
-	gh api graphql --paginate -f query='
+	gh api graphql --paginate --cache '600s' -f query='
 	query($endCursor: String) {
 	  viewer {
 	    repositories(first: 100, after: $endCursor) {
@@ -117,17 +117,16 @@ Check_remotes () {
 Create_push_remote () {  
 	# Create basic public remote on GitHub.com
 	# Set main upstream establishing remote references.
-	echo "gh repo create --public --confirm "${_dirname}"" && 
-		echo 'git push --set-upstream origin "$(git branch --show-current)"'
+	gh repo create --public --confirm "${_dirname}" && 
+		git push --set-upstream origin "$(git branch --show-current)"
 }
 
 Push_existing_repo () {
 	# Push local tracked repository to GitHub.
 
-	if [ -n "${1}" ]; then 
-		{ [ -e "${1}" ] && cd "${1}"; echo CWD: `pwd`; } || 
-			Prog_error 'noDir'
-	fi
+	[[ -n "${1}" && -e "${1}" ]] && 
+		cd "${1}" || 
+		Prog_error 'noDir'
 
 	[[ "$(pwd)" =~ \.git$ ]] && cd ..
 	local _repo="$(pwd)"
@@ -136,7 +135,7 @@ Push_existing_repo () {
 
 	if [ ! -e "${_repo}/.git" ]; then
 		Prompt_user "git init ${_dirname}" && 
-			echo "git init "$(pwd)"" || 
+			git init "$(pwd)" || 
 			Prog_error 'noGit'
 	fi
 
@@ -157,23 +156,22 @@ New_blank_repo () {
 	if [ -n "${1}" ]; then
 		_newdir="${1}/${_dirname}"
 	else
-		[ ! -e "${_LOCAL_GITS}" ] && 
-			mkdir "${_LOCAL_GITS}" && 
-			Prog_error 'noGit'
-		_newdir="${_LOCAL_GITS}/${_dirname}";
+		if [ ! -e "${_LOCAL_GITS}" ]; then
+			mkdir "${_LOCAL_GITS}" || Prog_error 'noGit'
+		fi
+		_newdir="${_LOCAL_GITS}/${_dirname}"
 		
 	fi
 
-	[ -e "${_newdir}" ] && 
-		Prog_error 'isDir'
+	[ -e "${_newdir}" ] && Prog_error 'isDir'
 
-	Check_remotes "${_dirname}" && {
-		echo "git init "${_newdir}"" && 
-		echo "cd ${_newdir}" && 
-		echo "git checkout -b 'main'" &&
+	Check_remotes "${_dirname}" &&
+		git init "${_newdir}" && 
+		cd "${_newdir}" && 
+		git checkout -b 'main' && 
 		"${_GITCOM}" -t -q &&
-		Create_push_remote "${_dirname}";
-	} || return 1
+		Create_push_remote "${_dirname}" ||
+		Prog_error 'noGit'
 }
 
 Main_loop () {

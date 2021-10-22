@@ -2,10 +2,8 @@
 
 # gitcom: Quick and simple `git (add|commit)` manager
 
-
 PROGNAME="${0##*/}"
 _GITBASH="${0%/*}/gitbash"
-
 
 Usage () {
 	cat <<- EOF
@@ -15,14 +13,16 @@ ${PROGNAME} - the stupid git commit manager
 usage: ${PROGNAME} [ -m ] [ -q ] [ -t ]
 
 Examples:
-   ${PROGNAME} [ -q ]
+   ${PROGNAME} [ -q ][ -t ]
    ${PROGNAME} -t -m 'commitMsg'
    ${PROGNAME} -q -t -m 'commitMsg'
 
  Flags:
-   -m | --cmsg		= commit message (git commit -m '')
-   -q | --quiet		= dont prompt before 'add -> commit' (use wisely)
-   -t | --templates	= generate README.md & .gitignore files if ! exist
+   -h | --help		= display this prompt.
+   -m | --cmsg		= commit message (git commit -m '').
+   -p | --push		= push upstream after committing changes.
+   -q | --quiet		= dont prompt before 'add -> commit' (use wisely).
+   -t | --templates	= create README.md & .gitignore files if doesn't exist.
 
 EOF
 exit 1
@@ -33,6 +33,7 @@ Prog_error () {
 	ERR['token']='unknown parameter'
 	ERR['noAdd']='`git add` failed'
 	ERR['noGit']='./.git does not exist in directory'
+	ERR['noCom']='failed commit'
 	ERR['push']='git push upstream failed'
 	echo -e "\nraised: ${ERR[${1}]}"
 	unset 'ERR'
@@ -40,8 +41,8 @@ Prog_error () {
 }
 
 Template_files () {
-	# Generate basic 'README.md' and '.gitignore' files if they dont exist.
-
+	# Generate template.gitignore then save in $_GITBASH directory.
+	# Create basic 'README.md' and '.gitignore' files if they dont exist.
 	local _CWD="$(pwd)"
 	local _README="${_CWD}/README.md"
 	local _IGNORE="${_CWD}/.gitignore"
@@ -67,27 +68,27 @@ Select_add () {
 	EOF
 	declare -a _ADDER
 	while true; do
-
-		read -a REPLY -rep "Queue[ ${_ADDER[@]}]<<< "
+		read -a REPLY -rep "Queue:[ ${_ADDER[@]}]<<< "
 		
 		if [[ "${REPLY}" == 'exit' ]]; then
 			Prog_error 'noAdd'
+
 		elif [[ ! "${REPLY}" ]]; then
-			echo -e "\ngit add ${_ADDER[@]}\n"
-			read -p 'execute(y/n)? ' _EXIT
-			[[ "${_EXIT}" == 'y' ]] && unset '_EXIT' && break
+			echo; read -p "git add ${_ADDER[@]} <<<(y/n): "
+			[[ "${REPLY}" =~ ^(y|yes)$ ]] && break
+
 		else
 			printf '\033[0F\033[0J'
 			for _valid in "${REPLY[@]}"; do
-				[ ! -e "${_valid}" ] &&
-					echo -e "FilenameError: '${_valid}'\n" ||
-					_ADDER+="${_valid} "
+				[ -e "${_valid}" ] && _ADDER+="${_valid} " ||
+					echo -e "FilenameError: '${_valid}'\n"
 			done
 		fi
 
 	done
 	if (( ${#_ADDER} )); then 
 		git add ${_ADDER[@]}
+		unset '_ADDER' '_EXIT'
 	else
 		Prog_error 'noAdd'
 	fi
@@ -95,11 +96,12 @@ Select_add () {
 
 Prompt_user () {
 	# Ask-before-add-&-commit enabled by default.
-	# For scripts, bypass with '-q | --quiet' option.
+	# (y|yes) commits everything listed by git status.
+	# (s|select) lets user select specific files to add/commit.
+	# Calling from scripts, bypass with '-q | --quiet' option.
 
-	local _PROMPT='[ add -> commit ]:(y/n/[s]elect): '
 	git status --short; echo
-
+	local _PROMPT='[ add -> commit ]:(y/n/[s]elect): '
 	read -p "${_PROMPT}" _response
 	case "${_response}" in
 		y | yes ) 
@@ -107,7 +109,7 @@ Prompt_user () {
 				Prog_error 'noAdd'
 			;;
 		s | select )
-			Select_add || 
+			Select_add ||  # See Select_add '<<- here string'
 				Prog_error 'noAdd'
 			;;
 		* )
@@ -117,37 +119,39 @@ Prompt_user () {
 }
 
 Main_loop () {
-	
-	local COMMIT_MSG="${_SETUP['cmsg']}"
+	# Verify git history exists, otherwise exit 1.
+	# Store short status for auto commit msg.
+	local STATUS=
+	readarray -d '\n' STATUS < <(git status --short || false) 
+	[[ ! "${STATUS}" ]] && Prog_error 'noGit'
 
-	local _status=
-	readarray -d '\n' _status < <(git status --short || false) 
-	[[ "${_status}" ]] || 
-		Prog_error 'noGit'
-
-	(( ${_SETUP['templates']} )) && 
-		Template_files
+	# See `Template_files` comments 
+	(( ${_SETUP['templates']} )) &&Template_files  
 
 	(( ${_SETUP['quiet']} )) && 
-		git add . || 
-		Prompt_user
+		git add . ||  # --quiet commit 
+		Prompt_user  # See `Prompt_user` comments
 
+	# Generate pre -> post state commit msg if none supplied by user
+	local COMMIT_MSG="${_SETUP['cmsg']}"
 	if [ -z "${COMMIT_MSG}" ]; then	
-		_FORMAT="\nPreCommit:\n%s\nPostCommit:\n%s\n" 
-		printf -v COMMIT_MSG "${_FORMAT}" "${_status}" "$(git status --short)"
-		unset '_FORMAT'
+		FORMAT="\nPreCommit:\n%s\nPostCommit:\n%s\n" 
+		printf -v COMMIT_MSG "${FORMAT}" \
+			"${STATUS}" \
+			"$(git status --short)"
+		unset 'FORMAT'
 	fi
 
 	echo
-	git commit -m "${COMMIT_MSG}" && 
-		(( ${_SETUP['push']} )) && {
+	# Commit changes and send upstream if -push flag is set.
+	git commit -m "${COMMIT_MSG}" || Prog_error 'noCom'
+	if (( ${_SETUP['push']} )); then 
 		git push || Prog_error 'push'
-	}
+	fi
 }
 
 Parse_args () {
 	# Parse user input & populate hash table for Main_loop.
-
 	declare -A _SETUP
 	while [ -n "${1}" ]; do
 		case "${1}" in
