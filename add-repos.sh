@@ -21,18 +21,18 @@ usage: ${PROGNAME} [ --new-repo ] [ -push-repo ] [ --query-remotes ]
 
 Where:
 ${PROGNAME} [ -n | --new-repo ] name (location|default)
-  - Create new version controlled directory and push to Github.com.
-  - git-init defaults into $_LOCAL_GITS unless specified otherwise.
-  - An attempt to create ${LOCAL_GIT_DIR} will be made before exiting on 1.
+  * Create new version controlled directory and push to Github.com.
+  * git-init defaults into $_LOCAL_GITS unless specified otherwise.
+  * An attempt to create ${LOCAL_GIT_DIR} will be made before exiting on 1.
 
 ${PROGNAME} [ -p | --push-repo ] (existing|cwd)
-  - Push an existing version controlled library to Github.com.
-  - Prompts user before executing git (init, add, commit).
-  - If any of the above fail, program exits w/o pushing upstream.
+  * Push an existing version controlled library to Github.com.
+  * Prompts user before executing git (init, add, commit).
+  * If any of the above fail, program exits w/o pushing upstream.
 
 ${PROGNAME} [ -q | --query-remotes ]
-   - See all remotes listed under ${_GITNAME} on github.
-   - PrettyPrint JSON response from 'gh api graphql query remotes'.
+   * See all remotes listed under ${_GITNAME} on github.
+   * PrettyPrint JSON response from 'gh api graphql query remotes'.
 
 * When pushing new directories upstream, namespace collisions are checked first.
 * If collision found, terminate w/o executing push upstream
