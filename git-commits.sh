@@ -99,7 +99,6 @@ Prompt_user () {
 	# (y|yes) commits everything listed by git status.
 	# (s|select) lets user select specific files to add/commit.
 	# Calling from scripts, bypass with '-q | --quiet' option.
-
 	git status --short; echo
 	local _PROMPT='[ add -> commit ]:(y/n/[s]elect): '
 	read -p "${_PROMPT}" _response
@@ -119,32 +118,33 @@ Prompt_user () {
 }
 
 Main_loop () {
-	# Verify git history exists, otherwise exit 1.
-	# Store short status for auto commit msg.
-	local STATUS=
+	local STATUS=  # Store short status for auto commit msg.
 	readarray -d '\n' STATUS < <(git status --short || false) 
-	[[ ! "${STATUS}" ]] && Prog_error 'noGit'
+	[[ ! ${STATUS} ]] && STATUS='null'
 
-	# See `Template_files` comments 
-	(( ${_SETUP['templates']} )) &&Template_files  
+	# See `Template_files` comments.
+	(( ${_SETUP['templates']} )) && Template_files  
+	
+	# Pass --quiet option from scripts to silently git add.
+	(( ${_SETUP['quiet']} )) && git add . ||
+		Prompt_user  # See `Prompt_user` comments.
 
-	(( ${_SETUP['quiet']} )) && 
-		git add . ||  # --quiet commit 
-		Prompt_user  # See `Prompt_user` comments
-
-	# Generate pre -> post state commit msg if none supplied by user
+	# Generate pre -> post state commit msg if none supplied by user.
 	local COMMIT_MSG="${_SETUP['cmsg']}"
 	if [ -z "${COMMIT_MSG}" ]; then	
 		FORMAT="\nPreCommit:\n%s\nPostCommit:\n%s\n" 
 		printf -v COMMIT_MSG "${FORMAT}" \
-			"${STATUS}" \
-			"$(git status --short)"
+			"${STATUS}" "$(git status --short)"
 		unset 'FORMAT'
 	fi
 
 	echo
 	# Commit changes and send upstream if -push flag is set.
-	git commit -m "${COMMIT_MSG}" || Prog_error 'noCom'
+	if [[ ! "${STATUS}" == 'null' ]]; then
+		git commit -m "${COMMIT_MSG}" || Prog_error 'noCom'
+	fi
+
+	# Push upstream if -p flag has been set.
 	if (( ${_SETUP['push']} )); then 
 		git push || Prog_error 'push'
 	fi
@@ -180,5 +180,9 @@ Parse_args () {
 	Main_loop "${_SEUTP}"
 }
 
-Parse_args "${@}"
+# Verify git history exists in CWD, otherwise exit 1.
+[ -e "$(pwd)/.git" ] && 
+	Parse_args "${@}" ||
+	Prog_error 'noGit'
+
 

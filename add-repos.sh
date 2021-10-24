@@ -23,7 +23,7 @@ Where:
 ${PROGNAME} [ -n | --new-repo ] name (location|default)
   * Create new version controlled directory and push to Github.com.
   * git-init defaults into $_LOCAL_GITS unless specified otherwise.
-  * An attempt to create ${LOCAL_GIT_DIR} will be made before exiting on 1.
+  * An attempt to create ${_LOCAL_GITS} will be made before exiting on 1.
 
 ${PROGNAME} [ -p | --push-repo ] (existing|cwd)
   * Push an existing version controlled library to Github.com.
@@ -60,11 +60,11 @@ Prompt_user () {
 	echo
 	read -p "${1} (y/n): " _mkinit
 	case "${_mkinit}" in
-		y ) 
+		y | yes ) 
 			return 0
 			;;
 		* )
-			return 1
+			exit 1
 			;;
 	esac
 }
@@ -117,40 +117,37 @@ Check_remotes () {
 Create_push_remote () {  
 	# Create basic public remote on GitHub.com
 	# Set main upstream establishing remote references.
-	gh repo create --public --confirm "${_dirname}" && 
+	gh repo create --public --confirm "${_dirname}" &&
 		git push --set-upstream origin "$(git branch --show-current)"
 }
 
 Push_existing_repo () {
 	# Push local tracked repository to GitHub.
+	if [ -z "${1}" ]; then
+		Prompt_user 'Push cwd? '
+	elif [[ -e "${1}" ]]; then
+		cd "${1}" || Prog_error 'noDir'
+	elif [[ "$(pwd)" =~ \.git$ ]]; then
+		cd ..
+	fi
 
-	[[ -n "${1}" && -e "${1}" ]] && 
-		cd "${1}" || 
-		Prog_error 'noDir'
-
-	[[ "$(pwd)" =~ \.git$ ]] && cd ..
 	local _repo="$(pwd)"
 	local _dirname="${_repo##*/}"
 	Check_remotes "${_dirname}"
 
 	if [ ! -e "${_repo}/.git" ]; then
-		Prompt_user "git init ${_dirname}" && 
-			git init "$(pwd)" || 
-			Prog_error 'noGit'
+		Prompt_user "git init ${_dirname}"
+		git init "$(pwd)" || Prog_error 'noGit'
 	fi
 
 	"${_GITCOM}" -t &&
 		git branch -m 'main' && 
-		Create_push_remote "${_dirname}" || 
-		Prog_error 'gitCom'
+		Create_push_remote "${_dirname}" 
 }
 
 New_blank_repo () {
 	# Create bare local tracked repo, and push to GitHub remote
 	# Any new blank repos created in ${_LOCAL_GITS} unless specified
-
-	[ -z "${_dirname}" ] && 
-		Prog_error 'nullArg'
 
 	local _newdir= 
 	if [ -n "${1}" ]; then
@@ -160,13 +157,11 @@ New_blank_repo () {
 			mkdir "${_LOCAL_GITS}" || Prog_error 'noGit'
 		fi
 		_newdir="${_LOCAL_GITS}/${_dirname}"
-		
 	fi
 
 	[ -e "${_newdir}" ] && Prog_error 'isDir'
 
-	Check_remotes "${_dirname}" &&
-		git init "${_newdir}" && 
+	git init "${_newdir}" && 
 		cd "${_newdir}" && 
 		git checkout -b 'main' && 
 		"${_GITCOM}" -t -q &&
@@ -179,7 +174,9 @@ Main_loop () {
 	local _dirname="${1}"; shift
 	case "${_param}" in
 		-n | --new-repo )
-			New_blank_repo "${1}" "${_dirname}"
+			[ -z "${_dirname}" ] && Prog_error 'nullArg'
+			Check_remotes "${_dirname}" || Prog_error 'isDir'
+			New_blank_repo "${1}" "${_dirname}" 
 			;;
 		-p | --push-existing )
 			Push_existing_repo "${_dirname}"
