@@ -71,7 +71,10 @@ Prompt_user () {
 
 Query_remotes () {
 	# Query GH-graphql for remote repositories.
-	gh api graphql --paginate --cache '600s' -f query='
+	# This is the query string straight from gh man pages.
+	# JSON is easy to parse and it pretty prints so here we are.
+
+	gh api graphql --paginate --cache '60s' -f query='
 	query($endCursor: String) {
 	  viewer {
 	    repositories(first: 100, after: $endCursor) {
@@ -95,7 +98,7 @@ Check_remotes () {
 	# Implement complex filters in the script located at "$_GITBASH".
 	# Currently takes dirname and serialized json response as input.
 	if [[ "${_FILTER_WITH}" ]]; then 
-		python3 "${_FILTER_WITH}" -N "${_dirname}" -J "${_json_response}" ||
+		python3 "${_FILTER_WITH}" -N "${DIRNAME}" -J "${_json_response}" ||
 			Prog_error 'remClobber'
 		return 0
 	fi
@@ -108,7 +111,7 @@ Check_remotes () {
 
 	for _rems in "${_remote_repos[@]}"; do
 		_iremote="${_rems##*/}"; 
-		if [[ "${_iremote%%\"*}" =~ ^"${_dirname}"$ ]]; then
+		if [[ "${_iremote%%\"*}" =~ ^"${DIRNAME}"$ ]]; then
 			Prog_error 'remClobber'
 		fi
 	done 
@@ -117,32 +120,36 @@ Check_remotes () {
 Create_push_remote () {  
 	# Create basic public remote on GitHub.com
 	# Set main upstream establishing remote references.
-	gh repo create --public --confirm "${_dirname}" &&
+	gh repo create --public --confirm "${DIRNAME}" &&
 		git push --set-upstream origin "$(git branch --show-current)"
 }
 
 Push_existing_repo () {
-	# Push local tracked repository to GitHub.
-	if [ -z "${1}" ]; then
+	# Determine which directory to push and setup for push.
+	if [ -z "${POS_ARG}" ]; then
 		Prompt_user 'Push cwd? '
-	elif [[ -e "${1}" ]]; then
-		cd "${1}" || Prog_error 'noDir'
+	elif [[ -e "${POS_ARG}" ]]; then
+		cd "${POS_ARG}" || Prog_error 'noDir'
 	elif [[ "$(pwd)" =~ \.git$ ]]; then
 		cd ..
 	fi
 
 	local _repo="$(pwd)"
-	local _dirname="${_repo##*/}"
-	Check_remotes "${_dirname}"
+	local DIRNAME="${_repo##*/}"
+	Check_remotes "${DIRNAME}"
 
 	if [ ! -e "${_repo}/.git" ]; then
-		Prompt_user "git init ${_dirname}"
-		git init "$(pwd)" || Prog_error 'noGit'
+		Prompt_user "git init ${DIRNAME}"
+		git init "$(pwd)" || 
+			Prog_error 'noGit'
 	fi
 
+	# $GITCOM generates README.md and .gitignore files if they dont exist.
+	# Additionally the user is prompted before any changes are made
+	# Supress prompt by including the '-q' flag in gitcom's call.
 	"${_GITCOM}" -t &&
 		git branch -m 'main' && 
-		Create_push_remote "${_dirname}" 
+		Create_push_remote "${DIRNAME}" 
 }
 
 New_blank_repo () {
@@ -151,12 +158,12 @@ New_blank_repo () {
 
 	local _newdir= 
 	if [ -n "${1}" ]; then
-		_newdir="${1}/${_dirname}"
+		_newdir="${1}/${DIRNAME}"
 	else
 		if [ ! -e "${_LOCAL_GITS}" ]; then
 			mkdir "${_LOCAL_GITS}" || Prog_error 'noGit'
 		fi
-		_newdir="${_LOCAL_GITS}/${_dirname}"
+		_newdir="${_LOCAL_GITS}/${DIRNAME}"
 	fi
 
 	[ -e "${_newdir}" ] && Prog_error 'isDir'
@@ -165,21 +172,39 @@ New_blank_repo () {
 		cd "${_newdir}" && 
 		git checkout -b 'main' && 
 		"${_GITCOM}" -t -q &&
-		Create_push_remote "${_dirname}" ||
+		Create_push_remote "${DIRNAME}" ||
 		Prog_error 'noGit'
 }
 
+Clone_gh_repo () {
+	if [[ -z "${POS_ARG}" && -e "${_LOCAL_GITS}" ]]; then 
+		cd "${_LOCAL_GITS}"
+	elif [ -e "${POS_ARG}" ]; then
+		cd "${POS_ARG}"
+	else
+		Prog_error 'noGit'
+	fi
+	gh repo clone "${DIRNAME}" 
+	cd -
+}
+
 Main_loop () {
-	local _param="${1}"; shift
-	local _dirname="${1}"; shift
-	case "${_param}" in
+
+	local OPTION="${1}"; shift
+	local DIRNAME="${1}"; shift
+	local POS_ARG="${1}"
+
+	case "${OPTION}" in
+		-c | --gh-clone )
+			Clone_gh_repo "${DIRNAME}" "${POS_ARG}" 
+			;;
 		-n | --new-repo )
-			[ -z "${_dirname}" ] && Prog_error 'nullArg'
-			Check_remotes "${_dirname}" || Prog_error 'isDir'
-			New_blank_repo "${1}" "${_dirname}" 
+			[ -z "${DIRNAME}" ] && Prog_error 'nullArg'
+			Check_remotes "${DIRNAME}" || Prog_error 'isDir'
+			New_blank_repo "${DIRNAME}" "${POS_ARG}" 
 			;;
 		-p | --push-existing )
-			Push_existing_repo "${_dirname}"
+			Push_existing_repo "${DIRNAME}" "${POS_ARG}" 
 			;;
 		-q | --query-remotes )
 			Query_remotes 
