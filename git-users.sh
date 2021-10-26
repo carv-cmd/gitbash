@@ -42,20 +42,21 @@ Add_ssh_key () {
 	[ -e "${HOME}/.ssh/id_ed25519" ] && Prog_error '004'
 
 	USER_EMAIL="$(git config --global --get user.email)"
-	[[ ! "${USER_EMAIL}" ]] && Prog_email '003'
+	[[ ! "${USER_EMAIL}" ]] && 
+		Prog_email '003'
 	
-	echo "ssh-keygen -t id_ed25519 -C ${USER_EMAIL}" &&
-		echo "eval $(ssh-agent -s)" &&
-		echo "ssh-add ${HOME}/.ssh/id_ed25519" && 
-		echo "cat ${HOME}/.ssh/id_ed25519"
+	ssh-keygen -t id_ed25519 -C "${USER_EMAIL}" &&
+		eval "$(ssh-agent -s)" &&
+		ssh-add "${HOME}/.ssh/id_ed25519" && 
+		cat "${HOME}/.ssh/id_ed25519"
 }
 
 Add_gh_token () {
 	[[ "$(grep 'GH_TOKEN' "${HOME}/.bashrc")" ]] && Prog_error '005'
 
-	if [ -n "${ARG}" ]; then
-		echo "# Added: $(date +%D) >> ${USER}/.bashrc"
-		echo "export GH_TOKEN='${ARG}' >> ${USER}/.bashrc"
+	if [ -n "${ADD_TOKEN}" ]; then
+		echo "# Added: $(date +%D)" >> "${HOME}/.bashrc"
+		echo "export GH_TOKEN='${ADD_TOKEN}'" >> "${HOME}/.bashrc"
 		source "${HOME}/.bashrc"
 	fi
 	unset 'ADD_TOKEN'
@@ -65,7 +66,7 @@ Set_git_config () {
 
 	local CHK_CONFIG="$(git config --global --get ${1})"
 	if [[ ! "${CHK_CONFIG}"  ]]; then
-		echo "git config --global ${1} ${2}" || Prog_error '003'
+		git config --global "${1}" "${2}" || Prog_error '003'
 	else
 		echo "Fatal: '${1} ${CHK_CONFIG}' <- ${2}"
 	fi

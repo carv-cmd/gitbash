@@ -1,16 +1,14 @@
 #!/bin/bash
 
-
 PROGNAME="${0##*/}"
-_GITBASH="${0%/*}/gitbash"
-_GITCOM="${_GITBASH}/git-commits.sh"
-_LOCAL_GITS="${HOME}/git-repos"
-_GITNAME="$(git config --get user.name)"
+GITBASH="${0%/*}/gitbash"
+GITCOM="${GITBASH}/git-commits.sh"
+LOCAL_GITS="${HOME}/git-repos"
+GITNAME="$(git config --get user.name)"
 
 # For complex filtering, uncomment and modify $_FILTER_WITH.
 # Passed complete Graphql JSON response string for parsing.
-_FILTER_WITH= #"${_GITBASH}/filter-repos.py"
-
+_FILTER_WITH= #"${GITBASH}/filter-repos.py"
 
 Usage () {
 	cat <<- EOF
@@ -22,8 +20,8 @@ usage: ${PROGNAME} [ --new-repo ] [ -push-repo ] [ --query-remotes ]
 Where:
 ${PROGNAME} [ -n | --new-repo ] name (location|default)
   * Create new version controlled directory and push to Github.com.
-  * git-init defaults into $_LOCAL_GITS unless specified otherwise.
-  * An attempt to create ${_LOCAL_GITS} will be made before exiting on 1.
+  * git-init defaults into $LOCAL_GITS unless specified otherwise.
+  * An attempt to create ${LOCAL_GITS} will be made before exiting on 1.
 
 ${PROGNAME} [ -p | --push-repo ] (existing|cwd)
   * Push an existing version controlled library to Github.com.
@@ -31,14 +29,14 @@ ${PROGNAME} [ -p | --push-repo ] (existing|cwd)
   * If any of the above fail, program exits w/o pushing upstream.
 
 ${PROGNAME} [ -q | --query-remotes ]
-   * See all remotes listed under ${_GITNAME} on github.
+   * See all remotes listed under ${GITNAME} on github.
    * PrettyPrint JSON response from 'gh api graphql query remotes'.
 
 * When pushing new directories upstream, namespace collisions are checked first.
 * If collision found, terminate w/o executing push upstream
 
 EOF
-unset '_LOCAL_GITS' '_GITIGNORE' '_GITNAME' 
+unset 'LOCAL_GITS' 'GITIGNORE' 'GITNAME' 
 exit 1
 }
 
@@ -91,27 +89,27 @@ Query_remotes () {
 
 Check_remotes () {
 	# Check remote repositories for conflicting names.
-	local _iremote=
-	local _remote_repos=
-	local _json_response="$(Query_remotes)"
+	local NEW_REMOTES=
+	local REMOTE_REPOS=
+	local JSON_RESPONSE="$(Query_remotes)"
 	
-	# Implement complex filters in the script located at "$_GITBASH".
+	# Implement complex filters in the script located at "$GITBASH".
 	# Currently takes dirname and serialized json response as input.
 	if [[ "${_FILTER_WITH}" ]]; then 
-		python3 "${_FILTER_WITH}" -N "${DIRNAME}" -J "${_json_response}" ||
+		python3 "${_FILTER_WITH}" -N "${DIRNAME}" -J "${JSON_RESPONSE}" ||
 			Prog_error 'remClobber'
 		return 0
 	fi
 	
 	# If $_FILTER_FUNC unset; parse JSON response with shell expansion.
 	# Relevant reponses extracted from JSON array with: *[##array%%]*
-	readarray -d ',' _remote_repos < <(\
-		_sliced="${_json_response##*[}";\
-		echo "${_sliced%%]*}")
+	readarray -d ',' REMOTE_REPOS < <(\
+		SLICED="${JSON_RESPONSE##*[}";\
+		echo "${SLICED%%]*}")
 
-	for _rems in "${_remote_repos[@]}"; do
-		_iremote="${_rems##*/}"; 
-		if [[ "${_iremote%%\"*}" =~ ^"${DIRNAME}"$ ]]; then
+	for _rems in "${REMOTE_REPOS[@]}"; do
+		NEW_REMOTES="${_rems##*/}"; 
+		if [[ "${NEW_REMOTES%%\"*}" =~ ^"${DIRNAME}"$ ]]; then
 			Prog_error 'remClobber'
 		fi
 	done 
@@ -134,11 +132,11 @@ Push_existing_repo () {
 		cd ..
 	fi
 
-	local _repo="$(pwd)"
-	local DIRNAME="${_repo##*/}"
+	local REPO="$(pwd)"
+	local DIRNAME="${REPO##*/}"
 	Check_remotes "${DIRNAME}"
 
-	if [ ! -e "${_repo}/.git" ]; then
+	if [ ! -e "${REPO}/.git" ]; then
 		Prompt_user "git init ${DIRNAME}"
 		git init "$(pwd)" || 
 			Prog_error 'noGit'
@@ -147,23 +145,23 @@ Push_existing_repo () {
 	# $GITCOM generates README.md and .gitignore files if they dont exist.
 	# Additionally the user is prompted before any changes are made
 	# Supress prompt by including the '-q' flag in gitcom's call.
-	"${_GITCOM}" -t &&
+	"${GITCOM}" -t &&
 		git branch -m 'main' && 
 		Create_push_remote "${DIRNAME}" 
 }
 
 New_blank_repo () {
 	# Create bare local tracked repo, and push to GitHub remote
-	# Any new blank repos created in ${_LOCAL_GITS} unless specified
+	# Any new blank repos created in ${LOCAL_GITS} unless specified
 
 	local _newdir= 
 	if [ -n "${1}" ]; then
 		_newdir="${1}/${DIRNAME}"
 	else
-		if [ ! -e "${_LOCAL_GITS}" ]; then
-			mkdir "${_LOCAL_GITS}" || Prog_error 'noGit'
+		if [ ! -e "${LOCAL_GITS}" ]; then
+			mkdir "${LOCAL_GITS}" || Prog_error 'noGit'
 		fi
-		_newdir="${_LOCAL_GITS}/${DIRNAME}"
+		_newdir="${LOCAL_GITS}/${DIRNAME}"
 	fi
 
 	[ -e "${_newdir}" ] && Prog_error 'isDir'
@@ -171,19 +169,20 @@ New_blank_repo () {
 	git init "${_newdir}" && 
 		cd "${_newdir}" && 
 		git checkout -b 'main' && 
-		"${_GITCOM}" -t -q &&
+		"${GITCOM}" -t -q &&
 		Create_push_remote "${DIRNAME}" ||
 		Prog_error 'noGit'
 }
 
 Clone_gh_repo () {
-	if [[ -z "${POS_ARG}" && -e "${_LOCAL_GITS}" ]]; then 
-		cd "${_LOCAL_GITS}"
+	if [[ -z "${POS_ARG}" ]]; then 
+		cd "${LOCAL_GITS}"
 	elif [ -e "${POS_ARG}" ]; then
 		cd "${POS_ARG}"
 	else
 		Prog_error 'noGit'
 	fi
+
 	gh repo clone "${DIRNAME}" 
 	cd -
 }
@@ -216,7 +215,9 @@ Main_loop () {
 
 if [[ ! "${@}" ]]; then
 	Prog_error 'nullArg'
-else
-	Main_loop "${@}"
+elif [ ! -e "${LOCAL_GITS}" ]; then
+	mkdir "${LOCAL_GITS}" || Prog_error 'noGit'
 fi
+
+Main_loop "${@}"
 
