@@ -5,156 +5,139 @@
 # Username has no filter, email regex filters only alnum & ( ., -, _, @ ).
 # SSH --keygen uses email associated with user in ~/.gitconfig.
 
+PROGNAME="${0##*/}"
 
-prog_usage () {
-	local PROGNAME="${0##*/}"
-	_args='[ --basic ] [--colors ] [ --keygen ]'
-	_kwargs='[ -u | --user <name> ][ -e | --email <gh_email> ]'
-	printf '\n%s\n\t%s\n\t%s\n' "usage: ${PROGNAME}:" "${_args}" "${_kwargs}"
-}
-
-
-error_msg () {
-	printf "\nExceptionRasied: ${1}"
-}
-
-
-set_git_config () {
-	printf '>>> git config --global %s %s\n' "${1}" "${2}"
-	git config --global "${1}" "${2}"
-}
-
-
-yn_clobber () {
+Usage () {
 	cat <<- EOF
-		[ Safe_Clobber || No_Clobber ]
-		KeyExistsError --> ${_config_key}
-		Current Value --> ${_chk_config}
-		New Value --> ${_config_val}
-	EOF
 
-	read -p 'Clobber? (y/n) ' _clobbering
-	if [[ "${_clobbering}" =~ ^y$ ]]; then
-		set_git_config "${_config_key}" "${_config_val}"
+usage: 
+  ${PROGNAME} --user-info <name> <gh_email> 
+  ${PROGNAME} [ --basic ] [ --keygen ] [ --token <gh_token> ]
+
+Flags:
+  --user-info	= set Git username and email for ${USER}
+  --basic	= set autocolor, editor=vim and default_branch_name=main
+  --keygen	= generate id_25519 ssh key for github over ssh
+  --token	= add token generated for 'gh auth login'
+	
+EOF
+exit 1
+}
+
+Prog_error () {
+	declare -A ERR
+	ERR['000']='null input'
+	ERR['001']='invalid input'
+	ERR['002']='user.name conflict'
+	ERR['003']='user.email conflict'
+	ERR['004']='ssh key conflict'
+	ERR['005']='gh token conflict'
+	echo -e "\nrasied: ${ERR[${1}]}\n"
+	unset 'ERR' 
+	exit 1
+}
+
+Add_ssh_key () {
+	# TODO Can multiple id_ed25591 key be created?
+	[ -e "${HOME}/.ssh/id_ed25519" ] && Prog_error '004'
+
+	USER_EMAIL="$(git config --global --get user.email)"
+	[[ ! "${USER_EMAIL}" ]] && Prog_email '003'
+	
+	echo "ssh-keygen -t id_ed25519 -C ${USER_EMAIL}" &&
+		echo "eval $(ssh-agent -s)" &&
+		echo "ssh-add ${HOME}/.ssh/id_ed25519" && 
+		echo "cat ${HOME}/.ssh/id_ed25519"
+}
+
+Add_gh_token () {
+	[[ "$(grep 'GH_TOKEN' "${HOME}/.bashrc")" ]] && Prog_error '005'
+
+	if [ -n "${ARG}" ]; then
+		echo "# Added: $(date +%D) >> ${USER}/.bashrc"
+		echo "export GH_TOKEN='${ARG}' >> ${USER}/.bashrc"
+		source "${HOME}/.bashrc"
+	fi
+	unset 'ADD_TOKEN'
+}
+
+Set_git_config () {
+
+	local CHK_CONFIG="$(git config --global --get ${1})"
+	if [[ ! "${CHK_CONFIG}"  ]]; then
+		echo "git config --global ${1} ${2}" || Prog_error '003'
 	else
-		echo -e "\nNO CLOBBER\n"
+		echo "Fatal: '${1} ${CHK_CONFIG}' <- ${2}"
 	fi
 }
 
-chk_git_config () {
-	# Check if config has been set before writing to it.
-	# Jumps to yn_clobber function if key/value pair exists.
-	local _config_key="${1}" _config_val="${2}"
-	local _chk_config=="$(git config --global --get ${_config_key})"
-	
-	# No config key/val pair found (returns single '=').
-	if [[ "${_chk_config}" =~ ^=$ ]]; then
-		set_git_config "${_config_key}" "${2}"
-	
-	# Raised git-config error; error code printed.
-	elif [[ "${?}" =~ ^[1-6]$ ]]; then
-		error_msg "git_config_errCode(${?})" && return 1
-	
-	# Default is NoClobber; prompts before overwriting configs.
-	else
-		yn_clobber "${_config_key}" "${_chk_config}" "${_config_val}"
-	fi
-}
-
-
-set_basic () {
+Set_basic () {
 	# Default branch name Git gives forks.
-	chk_git_config 'init.defaultBranch' 'main'
+	Set_git_config 'init.defaultBranch' 'main'
 
 	# Set the default editor Git uses; default is Vim.
-	chk_git_config 'core.editor' 'vim'
+	Set_git_config 'core.editor' 'vim'
 
 	# Set colors: color.(status|branch|interactive|diff)=auto
-	base_color=('color.status' 'color.branch' 'color.interactive' 'color.diff')
-	for _col_config in "${base_color[@]}"; do 
-		chk_git_config "${_col_config}" 'auto'
+	BASE_COL=('status' 'branch' 'interactive' 'diff')
+	for SET_COL in "${BASE_COL[@]}"; do 
+		Set_git_config "color.${SET_COL}" 'auto'
 	done
-	unset 'base_color' 
-	
 }
 
-
-set_user () {
-	# Set username and email: user.(name|email)
-	if [[ "${1}" == '-u' ]]; then
-		chk_git_config 'user.name' "${2}"
-	else
-		if [[ ! "${2}" =~ ^([[:alnum:]]|\.|\_|\-)+@([[:alnum:]]|\.)+\.[a-z]{2,5}$ ]]; then
-			error_msg 'BAD-EMAIL\n' && return 1
+Set_user_info () {
+	# Set Git $1:username and $2:email.
+	if [[ "${1}" && "${2}" ]]; then
+		if [[ "${2}" =~ ^([[:alnum:]]|\.|\_|\-)+@([[:alnum:]]|\.)+\.[a-z]{2,5}$ ]]; then
+			Set_git_config 'user.name' "${1}"
+			Set_git_config 'user.email' "${2}"
 		else
-			chk_git_config 'user.email' "${2}"
+			Prog_error '003'
 		fi
-	fi	
-}
-
-gen_ssh_key () {
-	# TODO Can multiple id_ed25591 key be created?
-	# TODO If comments have different emails cant see that being a porblem 
-	[ -e "${HOME}/.ssh/id_ed25519" ] && echo '??? ~/.ssh exists ???' && return 1
-
-	_email="$(git config --global --get user.email)"
-	if [[ "${_email}" =~ ^=$ ]]; then
-		echo 'Must have email associated with local Git first'
 	else
-		printf '\n>>> ssh-keygen -t id_ed25519 -C %s' "${_email}"
-		#ssh-keygen -t id_ed25519 -C "${1}"
-	
-		printf '\n>>> eval "$(ssh-agent -s)"'
-		#eval "$(ssh-agent -s)"
-
-		printf '\n>>> ssh-add "%s/.ssh/id_ed25519"\n' "${HOME}"
-		#ssh-add "${HOME}/.ssh/id_ed25519"
+		Prog_error '002'
 	fi
 }
 
-main_loop () {
-	local _SSH=0
-	declare -A user_custom
-	while [ -n "$1" ]; do
-		case "$1" in
-			-u | --user )  
-				shift; set_user '-u' "${1}"
-				;;
-			-e | --email )  
-				shift; set_user '-e' "${1}"
-				;;
+Main_loop () {
+	while [ -n "${1}" ]; do
+		case "${1}" in
 			--basic )
-				set_basic
+				Set_basic
+				;;
+			--user-info )  
+				shift
+				Set_user_info "${1}" "${2}"
+				shift
 				;;
 			--keygen )
-				_SSH='1'
+				GEN_SSH_KEY=1
 				;;
-			-k[0-9] )
-				# TODO Enter custom key/value pairs
-				shift; local _ckey="${1}"
-				shift; local _cval="${1}"
-				user_custom["${_ckey}"] = "${_cval}"
-				echo "ADDED: ${_ckey} == ${user_custom["${_ckey}"]}"
+			--token )
+				shift
+				ADD_TOKEN="${1}"
 				;;
 			-h | --help )
-				prog_usage && return 0
+				Usage
 				;;
 			* )
-				error_msg "Unknown Parameter ${1}"
+				Prog_error '000'
 		esac
 		shift
 	done
 
-	# Generate SSH public/private key pair
-	[[ "${_SSH}" == '1' ]] && gen_ssh_key
+	# Generate SSH id_ed25519 public/private key pair
+	[[ "${GEN_SSH_KEY}" ]] && Add_ssh_key
+
+	# Add `export GH_TOKEN=...` to $USER/.bashrc
+	[[ "${ADD_TOKEN}" ]] && Add_gh_token "${ADD_TOKEN}"
 }
 
 
-if [[ "${#}" == 0 ]]; then
-	prog_usage && exit 1
+if [[ ! "${@}" ]]; then
+	Usage
 else
-	echo
-	main_loop "$@"
+	Main_loop "$@"
 fi
 
 
