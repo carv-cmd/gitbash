@@ -2,8 +2,8 @@
 
 # gitcom: Quick and simple `git (add|commit)` manager
 
-PROGNAME="${0##*/}"
-_GITBASH="${0%/*}/gitbash"
+PROGNAME=${0##*/}
+GITBASH=${HOME}/bin/gitbash
 
 Usage () {
 	cat <<- EOF
@@ -41,21 +41,22 @@ Prog_error () {
 }
 
 Template_files () {
-	# Generate template.gitignore then save in $_GITBASH directory.
+	# Generate template.gitignore then save in $GITBASH directory.
 	# Create basic 'README.md' and '.gitignore' files if they dont exist.
-	local _CWD="$(pwd)"
-	local _README="${_CWD}/README.md"
-	local _IGNORE="${_CWD}/.gitignore"
-	local _GITIGNORE="${_GITBASH}/template.gitignore"
+	local CWD=$(pwd)
+	local MK_README="${CWD}/README.md"
+	local IGNORE_TEMPLATE="${CWD}/.gitignore"
+	local GITIGNORE="${GITBASH}/template.gitignore"
 
-	[ ! -e "${_README}" ] &&
-		echo "# ${_dirname}" >> "${_README}"
+	[ ! -e "${MK_README}" ] &&
+		echo "# ${CWD##*/}" >> "${MK_README}"
 
-	[[ ! -e "${_IGNORE}" && -e "${_GITIGNORE}" ]] && 
-		cp "${_GITIGNORE}" .gitignore
+	[[ ! -e "${IGNORE_TEMPLATE}" && -e "${GITIGNORE}" ]] && 
+		cp "${GITIGNORE}" .gitignore
 }
 
 Select_add () {
+	# I know `git commit --interactive` exists
 	cat <<- 'EOF'
 
 	* Enter filenames to `git add` from listing above.
@@ -80,7 +81,8 @@ Select_add () {
 		else
 			printf '\033[0F\033[0J'
 			for _valid in "${REPLY[@]}"; do
-				[ -e "${_valid}" ] && _ADDER+="${_valid} " ||
+				[ -e "${_valid}" ] && 
+					_ADDER+="${_valid} " || 
 					echo -e "FilenameError: '${_valid}'\n"
 			done
 		fi
@@ -120,13 +122,16 @@ Prompt_user () {
 Main_loop () {
 	local STATUS=  # Store short status for auto commit msg.
 	readarray -d '\n' STATUS < <(git status --short || false) 
-	[[ ! ${STATUS} ]] && STATUS='null'
+	[[ ! ${STATUS} ]] && 
+		STATUS='null'
 
 	# See `Template_files` comments.
-	(( ${_SETUP['templates']} )) && Template_files  
+	(( ${_SETUP['templates']} )) && 
+		Template_files  
 	
 	# Pass --quiet option from scripts to silently git add.
-	(( ${_SETUP['quiet']} )) && git add . ||
+	(( ${_SETUP['quiet']} )) && 
+		git add . ||
 		Prompt_user  # See `Prompt_user` comments.
 
 	# Generate pre -> post state commit msg if none supplied by user.
