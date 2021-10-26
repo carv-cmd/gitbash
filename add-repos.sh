@@ -189,7 +189,6 @@ Clone_gh_repo () {
 }
 
 Main_loop () {
-
 	local OPTION="${1}"; shift
 	local DIRNAME="${1}"; shift
 	local POS_ARG="${1}"
