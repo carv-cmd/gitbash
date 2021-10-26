@@ -46,6 +46,7 @@ Prog_error () {
 	ERR['remClobber']='activated remote clobber protection'
 	ERR['isDir']='activated local clobber protection'
 	ERR['noDir']='local directory doesnt exist'
+	ERR['isGit']='.git/ already exists in directory'
 	ERR['noGit']='required .git/ does not exists in directory'
 	ERR['gitCom']='must add and commit current state before pushing remote'
 	echo -e "\nraised: ${ERR[${1}]}"
@@ -118,8 +119,10 @@ Check_remotes () {
 Create_push_remote () {  
 	# Create basic public remote on GitHub.com
 	# Set main upstream establishing remote references.
-	gh repo create --public --confirm "${DIRNAME}" &&
-		git push --set-upstream origin "$(git branch --show-current)"
+	gh repo create --public --confirm "${DIRNAME}"
+	git push --set-upstream origin "$(git branch --show-current)"
+	git checkout -b develop --track origin/develop
+	
 }
 
 Push_existing_repo () {
@@ -138,14 +141,15 @@ Push_existing_repo () {
 
 	if [ ! -e "${REPO}/.git" ]; then
 		Prompt_user "git init ${DIRNAME}"
-		git init "$(pwd)" || 
-			Prog_error 'noGit'
+		git init "$(pwd)" || Prog_error 'noGit'
+	else
+		Prog_error 'noGit'
 	fi
 
 	# $GITCOM generates README.md and .gitignore files if they dont exist.
-	# Additionally the user is prompted before any changes are made
+	# Additionally the user is prompted before anything gets clobbered.
 	# Supress prompt by including the '-q' flag in gitcom's call.
-	"${GITCOM}" -t &&
+	"${GITCOM}" -t && 
 		git branch -m 'main' && 
 		Create_push_remote "${DIRNAME}" 
 }
@@ -155,16 +159,12 @@ New_blank_repo () {
 	# Any new blank repos created in ${LOCAL_GITS} unless specified
 
 	local _newdir= 
-	if [ -n "${1}" ]; then
-		_newdir="${1}/${DIRNAME}"
-	else
-		if [ ! -e "${LOCAL_GITS}" ]; then
-			mkdir "${LOCAL_GITS}" || Prog_error 'noGit'
-		fi
+	[[ "${POS_ARG}" == '.' ]] &&
+		_newdir="$(pwd)/${DIRNAME}" ||
 		_newdir="${LOCAL_GITS}/${DIRNAME}"
-	fi
 
-	[ -e "${_newdir}" ] && Prog_error 'isDir'
+	[ -e "${_newdir}" ] && 
+		Prog_error 'isDir'
 
 	git init "${_newdir}" && 
 		cd "${_newdir}" && 
@@ -180,7 +180,7 @@ Clone_gh_repo () {
 	elif [ -e "${POS_ARG}" ]; then
 		cd "${POS_ARG}"
 	else
-		Prog_error 'noGit'
+		Prog_error 'noDir'
 	fi
 
 	gh repo clone "${DIRNAME}" 
