@@ -5,6 +5,7 @@
 PROGNAME=${0##*/}
 GITBASH="${HOME}/bin/gitbash"
 
+# TODO Update usage output!!!
 Usage () {
 	cat <<- EOF
 

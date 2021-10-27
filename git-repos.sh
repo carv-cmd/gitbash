@@ -10,6 +10,7 @@ GITNAME="$(git config --get user.name)"
 # Passed complete Graphql JSON response string for parsing.
 _FILTER_WITH= #"${GITBASH}/filter-repos.py"
 
+# TODO Update usage output.
 Usage () {
 	cat <<- EOF
 
