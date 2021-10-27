@@ -137,14 +137,17 @@ Main_loop () {
 	local COMMIT_MSG="${_SETUP['cmsg']}"
 
 	# Commit changes.
-	if [[ -z "${COMMIT_MSG}" && "${STATUS}" ]]; then	
-		printf -v COMMIT_MSG "\nPreCommit:\n%s\nPostCommit:\n%s\n" \
-			"${STATUS}" "$(git status --short)"
+	if [[ -z "${COMMIT_MSG}" ]];then
+		if [[ "${STATUS}" ]]; then	
+			printf -v COMMIT_MSG "\nPreCommit:\n%s\nPostCommit:\n%s\n" \
+				"${STATUS}" "$(git status --short)"
 
-	elif [[ -z "${COMMIT_MSG}" && ! "${STATUS}" == 'null' ]]; then
-		COMMIT_MSG="$(git status --short)" 
+		elif [[ ! "${STATUS}" == 'null' ]]; then
+			COMMIT_MSG="$(git status --short)" 
+		fi
 	fi
-	git commit -m "${COMMIT_MSG}" || Prog_error 'noCom'
+	git commit -m "${COMMIT_MSG}" || 
+		Prog_error 'noCom'
 }
 
 Parse_args () {
