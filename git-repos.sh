@@ -1,7 +1,7 @@
-#!/bin/bash
+#/bin/bash
 
 PROGNAME="${0##*/}"
-GITBASH="${0%/*}/gitbash"
+GITBASH="${HOME}/bin/gitbash"
 GITCOM="${GITBASH}/git-commits.sh"
 LOCAL_GITS="${HOME}/git-repos"
 GITNAME="$(git config --get user.name)"
@@ -73,7 +73,7 @@ Query_remotes () {
 	# This is the query string straight from gh man pages.
 	# JSON is easy to parse and it pretty prints so here we are.
 
-	gh api graphql --paginate --cache '60s' -f query='
+	gh api graphql --paginate --cache '15s' -f query='
 	query($endCursor: String) {
 	  viewer {
 	    repositories(first: 100, after: $endCursor) {
@@ -119,10 +119,9 @@ Check_remotes () {
 Create_push_remote () {  
 	# Create basic public remote on GitHub.com
 	# Set main upstream establishing remote references.
-	gh repo create --public --confirm "${DIRNAME}"
-	git push --set-upstream origin "$(git branch --show-current)"
-	git checkout -b develop --track origin/develop
-	
+	gh repo create --public --confirm "${DIRNAME}" &&
+		git push --set-upstream origin "$(git branch --show-current)" &&
+		git checkout -b 'develop'
 }
 
 Push_existing_repo () {
@@ -169,9 +168,11 @@ New_blank_repo () {
 	git init "${_newdir}" && 
 		cd "${_newdir}" && 
 		git checkout -b 'main' && 
-		"${GITCOM}" -t -q &&
-		Create_push_remote "${DIRNAME}" ||
-		Prog_error 'noGit'
+		"${GITCOM}" -t -q && 
+		Create_push_remote "${DIRNAME}" && 
+		return 0
+	
+	Prog_error 'noGit'
 }
 
 Clone_gh_repo () {
@@ -184,6 +185,7 @@ Clone_gh_repo () {
 	fi
 
 	gh repo clone "${DIRNAME}" 
+	git checkout -b 'develop'
 	cd -
 }
 

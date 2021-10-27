@@ -3,7 +3,7 @@
 # gitcom: Quick and simple `git (add|commit)` manager
 
 PROGNAME=${0##*/}
-GITBASH=${HOME}/bin/gitbash
+GITBASH="${HOME}/bin/gitbash"
 
 Usage () {
 	cat <<- EOF
@@ -130,24 +130,23 @@ Main_loop () {
 		Template_files  
 	
 	# Pass --quiet option from scripts to silently git add.
-	(( ${_SETUP['quiet']} )) && 
-		git add . ||
+	if (( ${_SETUP['quiet']} )); then
+		git add .
+	else
 		Prompt_user  # See `Prompt_user` comments.
+	fi
 
 	# Generate pre -> post state commit msg if none supplied by user.
 	local COMMIT_MSG="${_SETUP['cmsg']}"
-	if [ -z "${COMMIT_MSG}" ]; then	
-		FORMAT="\nPreCommit:\n%s\nPostCommit:\n%s\n" 
-		printf -v COMMIT_MSG "${FORMAT}" \
-			"${STATUS}" "$(git status --short)"
-		unset 'FORMAT'
-	fi
 
-	echo
-	# Commit changes and send upstream if -push flag is set.
-	if [[ ! "${STATUS}" == 'null' ]]; then
-		git commit -m "${COMMIT_MSG}" || Prog_error 'noCom'
+	# Commit changes.
+	if [[ -z "${COMMIT_MSG}" && "${STATUS}" ]]; then	
+		printf -v COMMIT_MSG "\nPreCommit:\n%s\nPostCommit:\n%s\n" \
+			"${STATUS}" "$(git status --short)"
+	elif [[ -z "${COMMIT_MSG}" && ! "${STATUS}" == 'null' ]]; then
+		COMMIT_MSG="$(git status --short)" 
 	fi
+	git commit -m "${COMMIT_MSG}" || Prog_error 'noCom'
 
 	# Push upstream if -p flag has been set.
 	if (( ${_SETUP['push']} )); then 
