@@ -122,19 +122,15 @@ Prompt_user () {
 Main_loop () {
 	local STATUS=  # Store short status for auto commit msg.
 	readarray -d '\n' STATUS < <(git status --short || false) 
-	[[ ! ${STATUS} ]] && 
-		STATUS='null'
+	[[ ! ${STATUS} ]] && STATUS='null'
 
 	# See `Template_files` comments.
 	(( ${_SETUP['templates']} )) && 
 		Template_files  
 	
 	# Pass --quiet option from scripts to silently git add.
-	if (( ${_SETUP['quiet']} )); then
-		git add .
-	else
-		Prompt_user  # See `Prompt_user` comments.
-	fi
+	(( ${_SETUP['quiet']} )) &&
+		git add . || Prompt_user  # See `Prompt_user` comments.
 
 	# Generate pre -> post state commit msg if none supplied by user.
 	local COMMIT_MSG="${_SETUP['cmsg']}"
@@ -143,15 +139,11 @@ Main_loop () {
 	if [[ -z "${COMMIT_MSG}" && "${STATUS}" ]]; then	
 		printf -v COMMIT_MSG "\nPreCommit:\n%s\nPostCommit:\n%s\n" \
 			"${STATUS}" "$(git status --short)"
+
 	elif [[ -z "${COMMIT_MSG}" && ! "${STATUS}" == 'null' ]]; then
 		COMMIT_MSG="$(git status --short)" 
 	fi
 	git commit -m "${COMMIT_MSG}" || Prog_error 'noCom'
-
-	# Push upstream if -p flag has been set.
-	if (( ${_SETUP['push']} )); then 
-		git push || Prog_error 'push'
-	fi
 }
 
 Parse_args () {
@@ -182,6 +174,11 @@ Parse_args () {
 		shift
 	done
 	Main_loop "${_SEUTP}"
+
+	# Push upstream if -p flag has been set.
+	if (( ${_SETUP['push']} )); then 
+		git push || Prog_error 'push'
+	fi
 }
 
 # Verify git history exists in CWD, otherwise exit 1.
