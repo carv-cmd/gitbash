@@ -38,17 +38,18 @@ Prog_error () {
 }
 
 Add_ssh_key () {
+
 	# TODO Can multiple id_ed25591 key be created?
-	[ -e "${HOME}/.ssh/id_ed25519" ] && Prog_error '004'
+	[ -r "${HOME}/.ssh/id_ed25519.pub" ] && Prog_error '004'
 
 	USER_EMAIL="$(git config --global --get user.email)"
-	[[ ! "${USER_EMAIL}" ]] && 
-		Prog_email '003'
+	[[ ! "${USER_EMAIL}" ]] && Prog_email '003'
 	
-	ssh-keygen -t id_ed25519 -C "${USER_EMAIL}" &&
+	ssh-keygen -o -t ed25519 -C $USER_EMAIL &&
 		eval "$(ssh-agent -s)" &&
 		ssh-add "${HOME}/.ssh/id_ed25519" && 
-		cat "${HOME}/.ssh/id_ed25519"
+		cat "${HOME}/.ssh/id_ed25519.pub"
+
 }
 
 Add_gh_token () {
@@ -63,7 +64,6 @@ Add_gh_token () {
 }
 
 Set_git_config () {
-
 	local CHK_CONFIG="$(git config --global --get ${1})"
 	if [[ ! "${CHK_CONFIG}"  ]]; then
 		git config --global "${1}" "${2}" || Prog_error '003'
@@ -128,10 +128,12 @@ Main_loop () {
 	done
 
 	# Generate SSH id_ed25519 public/private key pair
-	[[ "${GEN_SSH_KEY}" ]] && Add_ssh_key
+	[[ "${GEN_SSH_KEY}" ]] && 
+		Add_ssh_key
 
 	# Add `export GH_TOKEN=...` to $USER/.bashrc
-	[[ "${ADD_TOKEN}" ]] && Add_gh_token "${ADD_TOKEN}"
+	[[ "${ADD_TOKEN}" ]] && 
+		Add_gh_token "${ADD_TOKEN}"
 }
 
 
