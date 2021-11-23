@@ -10,31 +10,34 @@ GITNAME="$(git config --get user.name)"
 # Passed complete Graphql JSON response string for parsing.
 _FILTER_WITH= #"${GITBASH}/filter-repos.py"
 
-# TODO Update usage output.
 Usage () {
 	cat <<- EOF
 
 ${PROGNAME} - the stupid git repo manager
 
-usage: ${PROGNAME} [ --new-repo ] [ -push-repo ] [ --query-remotes ]
+usage: ${PROGNAME} [ --gh-clone ] [ --new-repo ] [ -push-repo ] [ --query-remotes ]
 
 Where:
-${PROGNAME} [ -n | --new-repo ] name (location|default)
+$PROGNAME [ -c | --gh-clone ] 
+  * For cloning personal projects.
+  * Use git-clone||wget||curl for public open source.
+
+$PROGNAME [ -n | --new-repo ] name (location|default)
   * Create new version controlled directory and push to Github.com.
   * git-init defaults into $LOCAL_GITS unless specified otherwise.
-  * An attempt to create ${LOCAL_GITS} will be made before exiting on 1.
+  * An attempt to create $LOCAL_GITS will be made before exiting on 1.
 
-${PROGNAME} [ -p | --push-repo ] (existing|cwd)
+$PROGNAME [ -p | --push-repo ] (existing|cwd[.])
   * Push an existing version controlled library to Github.com.
   * Prompts user before executing git (init, add, commit).
   * If any of the above fail, program exits w/o pushing upstream.
 
-${PROGNAME} [ -q | --query-remotes ]
-   * See all remotes listed under ${GITNAME} on github.
+$PROGNAME [ -q | --query-remotes ]
+   * See all remotes listed under $GITNAME on github.
    * PrettyPrint JSON response from 'gh api graphql query remotes'.
 
-* When pushing new directories upstream, namespace collisions are checked first.
-* If collision found, terminate w/o executing push upstream
+* If pushing new repos upstream, namespace collisions are checked for first.
+* If collision found, $PROGNAME terminates w/o executing push upstream.
 
 EOF
 unset 'LOCAL_GITS' 'GITIGNORE' 'GITNAME' 
@@ -44,7 +47,7 @@ exit 1
 Prog_error () {
 	declare -A ERR
 	ERR['nullArg']='no parameters given'
-	ERR['remClobber']='activated remote clobber protection'
+	ERR['remClobber']='remote clobber protection'
 	ERR['isDir']='activated local clobber protection'
 	ERR['noDir']='local directory doesnt exist'
 	ERR['isGit']='.git/ already exists in directory'
@@ -53,20 +56,6 @@ Prog_error () {
 	echo -e "\nraised: ${ERR[${1}]}"
 	unset 'ERR'
 	exit 1
-}
-
-Prompt_user () {
-	# Binary response prompter
-	echo
-	read -p "${1} (y/n): " _mkinit
-	case "${_mkinit}" in
-		y | yes ) 
-			return 0
-			;;
-		* )
-			exit 1
-			;;
-	esac
 }
 
 Query_remotes () {
@@ -115,6 +104,20 @@ Check_remotes () {
 			Prog_error 'remClobber'
 		fi
 	done 
+}
+
+Prompt_user () {
+	# Binary response prompter
+	echo
+	read -p "${1} (y/n): " _mkinit
+	case "${_mkinit}" in
+		y | yes ) 
+			return 0
+			;;
+		* )
+			exit 1
+			;;
+	esac
 }
 
 Create_push_remote () {  
@@ -177,17 +180,20 @@ New_blank_repo () {
 }
 
 Clone_gh_repo () {
-	if [[ -z "${POS_ARG}" ]]; then 
-		cd "${LOCAL_GITS}"
-	elif [ -e "${POS_ARG}" ]; then
+	if [ -e "${POS_ARG}" ]; then
 		cd "${POS_ARG}"
 	else
-		Prog_error 'noDir'
+		echo "Clone Into: CWD[ `pwd` ] || DEF[ ${LOCAL_GITS} ]"
+		read -p "(cwd/def/q)? "
+		case "${REPLY}" in 
+			cwd )  ;;
+			def )  [ -e "${LOCAL_GITS}" ] && cd $LOCAL_GITS || Prog_error 'noDir' ;;
+			* )  Prog_error 'noDir' ;;
+		esac
 	fi
-
-	gh repo clone "${DIRNAME}" 
-	git checkout -b 'develop'
-	cd -
+	gh repo clone "${DIRNAME}" && 
+		cd $DIRNAME && 
+		git checkout -b 'develop'
 }
 
 Main_loop () {
