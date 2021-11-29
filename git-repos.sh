@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 PROGNAME="${0##*/}"
 GITBASH="${HOME}/bin/gitbash"
@@ -8,7 +8,8 @@ GITNAME="$(git config --get user.name)"
 
 # For complex filtering, uncomment and modify $_FILTER_WITH.
 # Passed complete Graphql JSON response string for parsing.
-_FILTER_WITH= #"${GITBASH}/filter-repos.py"
+_FILTER_WITH="${_FILTER_WITH:-}"  # ${GITBASH}/filter-repos.py
+
 
 Usage () {
 	cat <<- EOF
@@ -18,25 +19,26 @@ ${PROGNAME} - the stupid git repo manager
 usage: ${PROGNAME} [ --gh-clone ] [ --new-repo ] [ -push-repo ] [ --query-remotes ]
 
 Where:
-$PROGNAME [ -c | --gh-clone ] 
+
+ $PROGNAME [ -c | --gh-clone ] 
   * For cloning personal projects.
   * Use git-clone||wget||curl for public open source.
 
-$PROGNAME [ -n | --new-repo ] name (location|default)
+ $PROGNAME [ -n | --new-repo ] name (location|default)
   * Create new version controlled directory and push to Github.com.
   * git-init defaults into $LOCAL_GITS unless specified otherwise.
   * An attempt to create $LOCAL_GITS will be made before exiting on 1.
 
-$PROGNAME [ -p | --push-repo ] (existing|cwd[.])
+ $PROGNAME [ -p | --push-repo ] (existing|cwd[.])
   * Push an existing version controlled library to Github.com.
   * Prompts user before executing git (init, add, commit).
   * If any of the above fail, program exits w/o pushing upstream.
 
-$PROGNAME [ -q | --query-remotes ]
-   * See all remotes listed under $GITNAME on github.
-   * PrettyPrint JSON response from 'gh api graphql query remotes'.
+ $PROGNAME [ -q | --query-remotes ]
+  * See all remotes listed under $GITNAME on github.
+  * PrettyPrint JSON response from 'gh api graphql query remotes'.
 
-* If pushing new repos upstream, namespace collisions are checked for first.
+* If pushing new repos upstream, namespace collisions are checked first.
 * If collision found, $PROGNAME terminates w/o executing push upstream.
 
 EOF
