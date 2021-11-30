@@ -59,7 +59,7 @@ Checkouts_tracks () {
     # Checkout $GIT_BRANCH from $CW_BRANCH.
     # If $MODE='ctrack', pos-arg $2 expands to '--track'.
     if $sh_c "git checkout -b $GIT_BRANCH $2"; then
-        if [ "$TRACKS" ]; then
+        if [ "$2" ]; then
             $sh_c "git push $GIT_ORIGIN $GIT_BRANCH"
         fi
     fi
