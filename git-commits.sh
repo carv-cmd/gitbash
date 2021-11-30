@@ -151,8 +151,7 @@ Main_loop () {
 			COMMIT_MSG="$(git status --short)" 
 		fi
 	fi
-	git commit -m "${COMMIT_MSG}" || 
-		Prog_error 'noCom'
+	git commit -m "${COMMIT_MSG}" 
 }
 
 Parse_args () {
