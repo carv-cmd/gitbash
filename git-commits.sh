@@ -181,7 +181,7 @@ Parse_args () {
 
 	# Push upstream if -p flag has been set.
 	if (( ${_SETUP['push']} )); then 
-		git push || Prog_error 'push'
+            git push origin $(git branch --show-current) || Prog_error 'push'
 	fi
 }
 

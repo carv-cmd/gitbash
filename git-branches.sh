@@ -20,6 +20,7 @@ usage: $PROGNAME [-b|--branch] [-C|--ctrack] [-D|--delete] NAME
 The stupid git branch manager.
 
 Mode Flags:
+ -a, --all      Shortcut for \`git branch --all -vv\`
  -b, --branch   Checkout new branch NAME from CW_BRANCH.
  -C, --ctrack   Same as --branch + git push NAME upstream.
  -D, --delete   (CAUTION) Delete all NAME local and remote branches.
@@ -36,6 +37,10 @@ BRANCH:
  Overrides command line options.
  If set only specify mode flag.
 
+If ref symlinked to another ref such like;
+ * remotes/origin/HEAD -> origin/main
+ * Use \`git remote set-head origin --delete`\
+
 EOF
 exit 1
 }
@@ -45,7 +50,7 @@ Error () {
     exit 1
 }
 
-Cleanup_branches () {
+Branch_cleanup () {
     # Delete local branch, remote branch
     if [[ "$GIT_BRANCH" =~ ^$SCRUM_MASTER$ ]]; then
         Error 'protect: main: exiting'
@@ -58,7 +63,7 @@ Cleanup_branches () {
 Checkouts_tracks () {
     # Checkout $GIT_BRANCH from $CW_BRANCH.
     # If $MODE='ctrack', pos-arg $2 expands to '--track'.
-    if $sh_c "git checkout -b $GIT_BRANCH $2"; then
+    if $sh_c "git checkout -B $GIT_BRANCH $2"; then
         if [ "$2" ]; then
             $sh_c "git push $GIT_ORIGIN $GIT_BRANCH"
         fi
@@ -74,21 +79,20 @@ Branch_merge () {
 
     if $sh_c "git merge $GIT_BRANCH"; then
         if $sh_c "git push $GIT_ORIGIN $CW_BRANCH"; then
-            read -p "Purge: $GIT_BRANCH (y/n)?: "
-            [[ "$REPLY" =~ ^(y|yes)$ ]] && Cleanup_branches
+            read -p "Reset: $GIT_BRANCH (y/n)?: "
+            [[ "$REPLY" =~ ^(y|yes)$ ]] && Checkout_tracks
         fi
     fi
     exit 
 }
 
 Branch_modes () {
-    # BranchModes: [checkout-local, >& track, delete]
     if [[ "$MODE" =~ ^checkout$ ]]; then
         Checkouts_tracks "$TRACKS"
     elif [[ "$MODE" =~ ^ctrack$ ]]; then
         Checkouts_tracks "$TRACKS" '--track'
     elif [[ "$MODE" =~ ^delete$ ]]; then
-        Cleanup_branches
+        Branch_cleanup
     else
         Error "seems fatal"
     fi
@@ -111,6 +115,9 @@ Parse_args () {
     while [ -n "$1" ]; do
         iflag="$1"; shift
         case "$iflag" in 
+            -a | --all )
+                git branch --all -vv; exit
+                ;;
             -b | --branch )
                 Set_branch "$1" && shift
                 ;;
