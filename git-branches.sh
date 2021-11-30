@@ -10,7 +10,7 @@
 
 SCRUM_MASTER='main'
 CW_BRANCH="$(git branch --show-current)"
-GIT_ORIGIN="${ORIGIN:-origin}"
+GIT_ORIGIN=${ORIGIN:-origin}
 GIT_BRANCH="${BRANCH:-}"
 
 Usage () {
@@ -24,6 +24,7 @@ Mode Flags:
  -C, --ctrack   Same as --branch + git push NAME upstream.
  -D, --delete   (CAUTION) Delete all NAME local and remote branches.
  -M, --merge    Merge NAME into current working branch.
+ -h, --help     Display this help message and exit.
 
 Environment:
 
@@ -49,9 +50,9 @@ Cleanup_branches () {
     if [[ "$GIT_BRANCH" =~ ^$SCRUM_MASTER$ ]]; then
         Error 'protect: main: exiting'
     fi
-    $sh_c "git branch -d $GIT_BRANCH" && 
-        $sh_c "git branch -d -r $GIT_ORIGIN $GIT_BRANCH" && 
-        $sh_c "git push $GIT_ORIGIN --delete $GIT_BRANCH"
+    $sh_c "git branch -d $GIT_BRANCH" 
+    $sh_c "git branch -d -r $GIT_ORIGIN/$GIT_BRANCH"
+    $sh_c "git push $GIT_ORIGIN --delete $GIT_BRANCH"
 }
 
 Checkouts_tracks () {
@@ -62,6 +63,22 @@ Checkouts_tracks () {
             $sh_c "git push $GIT_ORIGIN $GIT_BRANCH"
         fi
     fi
+}
+
+Branch_merge () {
+    if git branch --list | grep -qE "^\* $GIT_BRANCH"; then
+        Error "\$GIT_BRANCH( $GIT_BRANCH ) =?= CURRENT( $CW_BRANCH )"
+    elif ! git branch --list | grep -q $GIT_BRANCH; then
+        Error "$GIT_BRANCH: doesn't exist"
+    fi
+
+    if $sh_c "git merge $GIT_BRANCH"; then
+        if $sh_c "git push $GIT_ORIGIN $CW_BRANCH"; then
+            read -p "Purge: $GIT_BRANCH (y/n)?: "
+            [[ "$REPLY" =~ ^(y|yes)$ ]] && Cleanup_branches
+        fi
+    fi
+    exit 
 }
 
 Branch_modes () {
@@ -89,21 +106,6 @@ Set_branch () {
     fi
 }
 
-Branch_merge () {
-    if git branch --list | grep -qE "^\* $GIT_BRANCH"; then
-        Error "\$GIT_BRANCH( $GIT_BRANCH ) =?= CURRENT( $CW_BRANCH )"
-    elif ! git branch --list | grep -q $GIT_BRANCH; then
-        Error "$GIT_BRANCH: doesn't exist"
-    fi
-
-    $sh_c "git merge $GIT_BRANCH"
-    read -p "Purge: $GIT_BRANCH (y/n)?: "
-    if [[ "$REPLY" =~ ^(y|yes)$ ]]; then
-        Cleanup_branches
-    fi
-    exit 
-}
-
 Parse_args () {
     local iflag=
     while [ -n "$1" ]; do
@@ -121,11 +123,16 @@ Parse_args () {
                 MODE='delete'
                 ;;
             -M | --merge )
+                [[ "$2" =~ ^--dry$ ]] && 
+                    sh_c='echo'
                 Set_branch "$1" 
                 Branch_merge
                 ;;
             --dry )
                 sh_c='echo'
+                ;;
+            -h | --help )
+                Usage
                 ;;
             * ) 
                 Error 'invalid argument'
@@ -145,7 +152,7 @@ Parse_args () {
 }
 
 
-sh_c='echo' #<- sh -c'
+sh_c='sh -c'
 MODE='checkout'
 BRANCH_REGEX='^([[:alnum:]]|\-|\_|\.)+$'
 
