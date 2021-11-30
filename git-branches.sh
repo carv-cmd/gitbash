@@ -142,12 +142,12 @@ Parse_args () {
 
     if [[ "$GIT_BRANCH" =~ ^--dry$ ]]; then
         Error 'NAME !!= --dry'
-    elif [[ ! "$GIT_BRANCH" =~ $BRANCH_REGEX ]]; then
-        # Tries to keep branch names manageable
-        Error "regex( $BRANCH_REGEX )"
     elif [ ! "$GIT_BRANCH" ]; then 
         # Defaults to 'develop' branch if no given
         Set_branch 'develop'
+    elif [[ ! "$GIT_BRANCH" =~ $BRANCH_REGEX ]]; then
+        # Tries to keep branch names manageable
+        Error "regex( $BRANCH_REGEX )"
     fi
 }
 
