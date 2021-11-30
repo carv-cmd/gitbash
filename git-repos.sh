@@ -1,5 +1,14 @@
 #!/bin/bash
 
+#       _ _                        
+#  __ _(_) |_ _ _ ___ _ __  ___ ___
+# / _` | |  _| '_/ -_) '_ \/ _ (_-<
+# \__, |_|\__|_| \___| .__/\___/__/
+# |___/              |_|           
+# 
+# git-repos.sh: manage upstream server repositories.
+
+
 PROGNAME="${0##*/}"
 GITBASH="${HOME}/bin/gitbash"
 GITCOM="${GITBASH}/git-commits.sh"

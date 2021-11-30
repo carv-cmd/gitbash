@@ -1,11 +1,16 @@
 #!/bin/bash
 
+#       _ _                
+#  __ _(_) |_ __ ___ _ __  
+# / _` | |  _/ _/ _ \ '  \ 
+# \__, |_|\__\__\___/_|_|_|
+# |___/                    
+# 
 # gitcom: Quick and simple `git (add|commit)` manager
 
 PROGNAME=${0##*/}
 GITBASH="${HOME}/bin/gitbash"
 
-# TODO Update usage output!!!
 Usage () {
 	cat <<- EOF
 
@@ -189,5 +194,4 @@ Parse_args () {
 [ -e "$(pwd)/.git" ] && 
 	Parse_args "${@}" ||
 	Prog_error 'noGit'
-
 
