@@ -51,9 +51,10 @@ Commit_msg () {
 }
 
 Update_index () {
-    [ ! "$STATUS" ] && return || git status --short
-
+    [ -n "$COMMIT_MSG" ] && return
+    git status --short
     local REPLY=yes
+
     if [ -z "${KWARGS["quiet"]}" ]; then
         read -p '[ add && commit ](y/n)?: '
     fi
