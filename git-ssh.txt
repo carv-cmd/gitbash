@@ -1,0 +1,20 @@
+# SSH for local git <-> github
+
+1a). Generate id_ed25591 key pair (save default, set passphrase)
+	1b). ssh-keygen -t id_ed25591 -C 'github_email@mail.com'
+
+
+2a). Start ssh-agent in background
+	2b). ssh-agent -s
+	2c). eval "$(ssh-agent -s)"
+
+
+3a). Add private key to ssh-agent, (prompts for passphrase)
+	3b). ssh-add ~/.ssh/id_ed25591
+
+
+4a). Switching remotes from HTTPS to SSH
+	4b). git remote -v
+	4c). git remote set-url origin git@github.com:USERNAME/REPOSITORY.git
+	4d). git remote -v
+
