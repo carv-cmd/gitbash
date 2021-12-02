@@ -10,8 +10,15 @@
 
 MASTER='main'
 ORIGIN=${ORIGIN:-origin}
-NEW_BRANCH=${NEW_BRANCH:-}
+BRANCH_NAME=${BRANCH_NAME:-}
 CURRENT_BRANCH="$(git branch --show-current)"
+
+sh_c=${SHC:-}
+if [ "$sh_c" ]; then
+    sh_c='echo'
+else
+    sh_c='sh -c'
+fi
 
 
 Usage () {
@@ -19,25 +26,29 @@ Usage () {
     cat >&2 <<- EOF
 usage: $PROGNAME
 
- $PROGNAME [--checkout]|[--checkout-track]|[--delete]|[--merge] [--dry] BRANCH_NAME
  $PROGNAME [-a|--all]
+ $PROGNAME [-m|--merge] BRANCH_NAME
+ $PROGNAME [-l|--mk-locals]|[-L|--rm-locals] BRANCH_NAME
+ $PROGNAME [-r|--mk-remotes]|[-R|--rm-remotes] BRANCH_NAME
 
 Options:
- -c, --checkout         Checkout new BRANCH_NAME from CURRENT_BRANCH.
- -C, --checkout-track   Identical to -c, but pushes BRANCH_NAME upstream.
- -D, --delete           Delete all local and remote BRANCH_NAME's.
- -M, --merge            Merge BRANCH_NAME into CURRENT_BRANCH.
- -a, --all              Shortcut for \`git branch --all -vv\`
- -d, --dry              Echo commands that would be executed.
+ -l, --mk-locals        Checkout new BRANCH_NAME from CURRENT_BRANCH.
+ -r, --mk-remotes       Identical to -l, but pushes BRANCH_NAME upstream.
+ -m, --merge            Merge BRANCH_NAME into CURRENT_BRANCH.
+ -L, --rm-locals        Delete local references to BRANCH_NAME
+ -R, --rm-remotes       Delete remote reference to BRANCH_NAME.
+ -a, --all              Print \`git branch --all -vv\` and exit.
  -h, --help             Display this help message and exit.
 
-==========
+=============================================
 For defaults set the following in your shell.
 ==========
 ORIGIN: 
  Can only be set through environment.
 BRANCH: 
  Command line arguments take precedence.
+SHC:
+ Set with any value to echo commands instead of executing them.
 
 EOF
 exit
@@ -48,70 +59,70 @@ Error () {
     exit 1
 }
 
-Valid_branch () {
-    local ACTION="$1"
-    if [ "$NEW_BRANCH" == "$CURRENT_BRANCH" ]; then
-        Error "$ACTION($NEW_BRANCH) == current($CURRENT_BRANCH)"
-    elif ! git branch --list | grep -q $NEW_BRANCH; then
-        Error "branch[ $NEW_BRANCH ]: doesn't exist"
-    fi
-}
-
-Stale_cleaner () {
-    # Delete all local and remote references to stale branch.
-    Valid_branch 'delete'
-    $sh_c "git branch -d $NEW_BRANCH" && 
-        $sh_c "git branch -d -r $ORIGIN/$NEW_BRANCH" &&
-        $sh_c "git push $ORIGIN --delete $NEW_BRANCH"
-}
-
-Merger () {
-    Valid_branch 'merge'
-    if $sh_c "git merge $NEW_BRANCH"; then
-        if git branch --list -r | grep -q ^*$NEW_BRANCH*$; then
-            $sh_c "git push $ORIGIN $CURRENT_BRANCH" && New_branch '--track'
-        else
-            New_branch
-        fi
-    fi
-}
-
-New_branch () {
+make_locals () {
     local TRACK=${1:-}
-    if $sh_c "git checkout -B $NEW_BRANCH $TRACK"; then
-        if [ "$TRACK" ]; then
-            $sh_c "git push $ORIGIN $NEW_BRANCH"
-        fi
+    $sh_c "git checkout -B $BRANCH_NAME $TRACK"
+}
+
+make_remotes () {
+    if make_locals '--track'; then
+        $sh_c "git push $ORIGIN $BRANCH_NAME"
     fi
 }
 
-Parse_args () {
-    for arg in "$@"; do
-        case "$arg" in 
-            -a | --all )  git branch --all -vv; exit;;
-            -c | --checkout )  MODE='checkout';;
-            -C | --checkout-track )  MODE='ctrack';;
-            -D | --delete )  MODE='delete';;
-            -M | --merge )  MODE='merge';;
-            -d | --dry )  sh_c='echo'; continue;;
-            -h | --help )  Usage > /dev/stderr;;
-            * )  [[ ! "$arg" =~ ^--?[A-Za-z]+$ ]] && 
-                NEW_BRANCH="$arg";;
-        esac
-    done
-    if [ ! "$NEW_BRANCH" ]; then
-        Error 'branch name unset.'
+send_upstream () {
+    if [ -n "$(git remote -v)" ]; then
+        $sh_c "git push $ORIGIN $CURRENT_BRANCH"
     fi
 }
 
-MODE=
-sh_c='sh -c'
-Parse_args "$@"
-case "$MODE" in
-    checkout )  New_branch;;
-    ctrack )  New_branch '--track';;
-    delete ) Stale_cleaner;;
-    merge )  Merger;;
-    * ) Error "UnexpectedError";;
-esac
+merge_branches () {
+    if $sh_c "git merge $BRANCH_NAME"; then
+        send_upstream
+    fi
+}
+
+remove_locals () {
+    $sh_c "git branch -d $BRANCH_NAME" 
+}
+
+remove_remotes () {
+    if [ -n "$(git remtote -v)" ]; then
+        $sh_c "git branch -d -r $ORIGIN/$BRANCH_NAME"
+        $sh_c "git push $ORIGIN --delete $BRANCH_NAME"
+    fi
+}
+
+execute_branch_task () {
+    case "$BRANCH_OPERATION" in 
+        -l | --mk-locals )  make_locals;;
+        -r | --mk-remotes ) make_remotes;; 
+        -m | --merge )  merge_branches;;
+        -L | --rm-locals ) remove_locals;;
+        -R | --rm-remotes )  remove_remotes;;
+        -h | --help )  Usage;;
+        * ) Error "unknown option: $BRANCH_OPERATION"
+    esac
+}
+
+valid_name () {
+    if [[ ! "$BRANCH_NAME" =~ ^[[:alnum:]]*$ ]]; then
+        Error "invalid name: $1"
+    else
+        return 0
+    fi
+}
+
+
+BRANCH_OPERATION="$1"
+BRANCH_NAME="$2"
+valid_name  
+
+if [[ "$BRANCH_OPERATION" =~ ^-(a|\-all)$ ]]; then
+    git branch --all -vv
+elif [ ! "$BRANCH_NAME" ]; then
+    Usage > /dev/stderr
+else
+    execute_branch_task
+fi
 
