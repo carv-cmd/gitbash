@@ -40,7 +40,7 @@ BRANCH:
  Command line arguments take precedence.
 
 EOF
-exit 1
+exit
 }
 
 Error () {

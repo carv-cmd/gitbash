@@ -52,7 +52,7 @@ Where:
 
 EOF
 unset 'LOCAL_GITS' 'GITIGNORE' 'GITNAME' 
-exit 1
+exit
 }
 
 Prog_error () {

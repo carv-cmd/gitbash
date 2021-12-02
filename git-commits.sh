@@ -33,7 +33,7 @@ Options
  -h, --help	    Display this prompt and exit.
 
 EOF
-exit 1
+exit 
 }
 
 Error () {
