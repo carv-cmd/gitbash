@@ -106,7 +106,7 @@ execute_branch_task () {
 }
 
 valid_name () {
-    if [[ ! "$BRANCH_NAME" =~ ^[[:alnum:]]*$ ]]; then
+    if [[ ! "$BRANCH_NAME" =~ ^[[:alnum:]]+(\-|\_|\.)*[[:alnum:]]*$ ]]; then
         Error "invalid name: $1"
     else
         return 0
@@ -116,13 +116,13 @@ valid_name () {
 
 BRANCH_OPERATION="$1"
 BRANCH_NAME="$2"
-valid_name  
 
 if [[ "$BRANCH_OPERATION" =~ ^-(a|\-all)$ ]]; then
     git branch --all -vv
 elif [ ! "$BRANCH_NAME" ]; then
     Usage > /dev/stderr
 else
+    valid_name  
     execute_branch_task
 fi
 
