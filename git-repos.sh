@@ -6,238 +6,152 @@
 # \__, |_|\__|_| \___| .__/\___/__/
 # |___/              |_|           
 # 
-# git-repos.sh: manage upstream server repositories.
+# Manage upstream GitHub repositories.
+VERSION='1.01'
+
+sh_c='sh -c'
+ECHO=${ECHO:-}
+[ "$ECHO" ] && sh_c='echo'
+
+LOCAL_GITS=${LOCAL_GITS:-$HOME/git-repos}
+
+GITBASH="$HOME/bin/gitbash"
+GIT_IGNORE="$GITBASH/template.gitignore"
 
 
-PROGNAME="${0##*/}"
-GITBASH="${HOME}/bin/gitbash"
-GITCOM="${GITBASH}/git-commits.sh"
-LOCAL_GITS="${HOME}/git-repos"
-GITNAME="$(git config --get user.name)"
+query_remotes () {
+    # GH API graphql query. See gh docs for details.
+    gh api graphql --paginate --cache '15s' -f query='
+    query($endCursor: String) {
+      viewer {
+        repositories(first: 100, after: $endCursor) {
+          nodes { nameWithOwner }
+          pageInfo {
+            hasNextPage
+               endCursor
+          }
+        }
+      }
+    }
+    '
+}
 
-# For complex filtering, uncomment and modify $_FILTER_WITH.
-# Passed complete Graphql JSON response string for parsing.
-_FILTER_WITH="${_FILTER_WITH:-}"  # ${GITBASH}/filter-repos.py
+if [[ "$1" =~ ^-(q|\-query-remotes)$ ]]; then
+    query_remotes
+    exit
+fi
 
 
 Usage () {
-	cat <<- EOF
+    PROGNAME="${0##*/}"
+    cat >&2 <<- EOF
+usage: $PROGNAME [ --query ] | [ --default ] REPO_NAME
 
-${PROGNAME} - the stupid git repo manager
+Options:
+ -d, --default      Creates directory in \$LOCAL_GITS: $LOCAL_GITS, else use \$PWD.
+ -q, --query        Get all GitHub.com remote repositories owned by user.
+ -p, --public       Set repo pubic when pushing upstream. default=private.
+ -h, --help         Display this help message and exit.
 
-usage: ${PROGNAME} [ --gh-clone ] [ --new-repo ] [ -push-repo ] [ --query-remotes ]
-
-Where:
-
- $PROGNAME [ -c | --gh-clone ] 
-  * For cloning personal projects.
-  * Use git-clone||wget||curl for public open source.
-
- $PROGNAME [ -n | --new-repo ] name (location|default)
-  * Create new version controlled directory and push to Github.com.
-  * git-init defaults into $LOCAL_GITS unless specified otherwise.
-  * An attempt to create $LOCAL_GITS will be made before exiting on 1.
-
- $PROGNAME [ -p | --push-repo ] (existing|cwd[.])
-  * Push an existing version controlled library to Github.com.
-  * Prompts user before executing git (init, add, commit).
-  * If any of the above fail, program exits w/o pushing upstream.
-
- $PROGNAME [ -q | --query-remotes ]
-  * See all remotes listed under $GITNAME on github.
-  * PrettyPrint JSON response from 'gh api graphql query remotes'.
-
-* If pushing new repos upstream, namespace collisions are checked first.
-* If collision found, $PROGNAME terminates w/o executing push upstream.
+Environment
+============
+LOCAL_GITS:
+ Default directory to create git repos in. 
+ Current default is: $LOCAL_GITS
 
 EOF
-unset 'LOCAL_GITS' 'GITIGNORE' 'GITNAME' 
 exit
 }
 
-Prog_error () {
-	declare -A ERR
-	ERR['nullArg']='no parameters given'
-	ERR['remClobber']='remote clobber protection'
-	ERR['isDir']='activated local clobber protection'
-	ERR['noDir']='local directory doesnt exist'
-	ERR['isGit']='.git/ already exists in directory'
-	ERR['noGit']='required .git/ does not exists in directory'
-	ERR['gitCom']='must add and commit current state before pushing remote'
-	echo -e "\nraised: ${ERR[${1}]}"
-	unset 'ERR'
-	exit 1
+Error () {
+    echo -e "$1\n" > /dev/stderr
+    exit 1
 }
 
-Query_remotes () {
-	# Query GH-graphql for remote repositories.
-	# This is the query string straight from gh man pages.
-	# JSON is easy to parse and it pretty prints so here we are.
-
-	gh api graphql --paginate --cache '15s' -f query='
-	query($endCursor: String) {
-	  viewer {
-	    repositories(first: 100, after: $endCursor) {
-	      nodes { nameWithOwner }
-	      pageInfo {
-	        hasNextPage
-			endCursor
-              }
-      	    }
-          }
-        }
-	'
+parse_args () {    
+    for arg in $@; do
+        case "$arg" in 
+            -d | --default ) use_default;;
+            -p | --visibiltiy ) VISIBILITY=private;;
+            -h | --help ) Usage;;
+            -* | --* ) Usage;;
+            * ) REPO_NAME="$arg";;
+        esac
+    done
 }
 
-Check_remotes () {
-	# Check remote repositories for conflicting names.
-	local NEW_REMOTES=
-	local REMOTE_REPOS=
-	local JSON_RESPONSE="$(Query_remotes)"
-	
-	# Implement complex filters in the script located at "$GITBASH".
-	# Currently takes dirname and serialized json response as input.
-	if [[ "${_FILTER_WITH}" ]]; then 
-		python3 "${_FILTER_WITH}" -N "${DIRNAME}" -J "${JSON_RESPONSE}" ||
-			Prog_error 'remClobber'
-		return 0
-	fi
-	
-	# If $_FILTER_FUNC unset; parse JSON response with shell expansion.
-	# Relevant reponses extracted from JSON array with: *[##array%%]*
-	readarray -d ',' REMOTE_REPOS < <(\
-		SLICED="${JSON_RESPONSE##*[}";\
-		echo "${SLICED%%]*}")
-
-	for _rems in "${REMOTE_REPOS[@]}"; do
-		NEW_REMOTES="${_rems##*/}"; 
-		if [[ "${NEW_REMOTES%%\"*}" =~ ^"${DIRNAME}"$ ]]; then
-			Prog_error 'remClobber'
-		fi
-	done 
+use_default () {
+    if [ "$LOCAL_GITS" -a ! -d "$LOCAL_GITS" ]; then
+        make_default
+    fi
+    cd $LOCAL_GITS
 }
 
-Prompt_user () {
-	# Binary response prompter
-	echo
-	read -p "${1} (y/n): " _mkinit
-	case "${_mkinit}" in
-		y | yes ) 
-			return 0
-			;;
-		* )
-			exit 1
-			;;
-	esac
+make_default () {
+    if [ ! -d "$LOCAL_GITS" ]; then
+        $sh_c "mkdir $LOCAL_GITS" || Error 'no default'
+    fi
 }
 
-Create_push_remote () {  
-	# Create basic public remote on GitHub.com
-	# Set main upstream establishing remote references.
-	gh repo create --public --confirm "${DIRNAME}" &&
-		git push --set-upstream origin "$(git branch --show-current)" &&
-		git checkout -b 'develop'
+make_local_repository () {
+    if [ ! -d "$REPO_NAME/.git" ]; then
+        $sh_c "git init $REPO_NAME"
+        checkout_main
+    fi
 }
 
-Push_existing_repo () {
-	# Determine which directory to push and setup for push.
-	if [ -z "${POS_ARG}" ]; then
-		Prompt_user 'Push cwd? '
-	elif [[ -e "${POS_ARG}" ]]; then
-		cd "${POS_ARG}" || Prog_error 'noDir'
-	elif [[ "$(pwd)" =~ \.git$ ]]; then
-		cd ..
-	fi
-
-	local REPO="$(pwd)"
-	local DIRNAME="${REPO##*/}"
-	Check_remotes "${DIRNAME}"
-
-	if [ ! -e "${REPO}/.git" ]; then
-		Prompt_user "git init ${DIRNAME}"
-		git init "$(pwd)" || Prog_error 'noGit'
-	else
-		Prog_error 'noGit'
-	fi
-
-	# $GITCOM generates README.md and .gitignore files if they dont exist.
-	# Additionally the user is prompted before anything gets clobbered.
-	# Supress prompt by including the '-q' flag in gitcom's call.
-	"${GITCOM}" -t && 
-		git branch -m 'main' && 
-		Create_push_remote "${DIRNAME}" 
+checkout_main () {
+    if [[ ! "$(git branch --show-current)" =~ ^main$ ]]; then
+        $sh_c 'git checkout -B main'
+    fi
 }
 
-New_blank_repo () {
-	# Create bare local tracked repo, and push to GitHub remote
-	# Any new blank repos created in ${LOCAL_GITS} unless specified
-
-	local _newdir= 
-	[[ "${POS_ARG}" == '.' ]] &&
-		_newdir="$(pwd)/${DIRNAME}" ||
-		_newdir="${LOCAL_GITS}/${DIRNAME}"
-
-	[ -e "${_newdir}" ] && 
-		Prog_error 'isDir'
-
-	git init "${_newdir}" && 
-		cd "${_newdir}" && 
-		git checkout -b 'main' && 
-		"${GITCOM}" -t -q && 
-		Create_push_remote "${DIRNAME}" && 
-		return 0
-	
-	Prog_error 'noGit'
+make_readme () {
+    if [ ! -f ./READNE.md ]; then
+        $sh_c "echo '# ${PWD##*/}' > ./README.md"
+    fi
 }
 
-Clone_gh_repo () {
-	if [ -e "${POS_ARG}" ]; then
-		cd "${POS_ARG}"
-	else
-		echo "Clone Into: CWD[ `pwd` ] || DEF[ ${LOCAL_GITS} ]"
-		read -p "(cwd/def/q)? "
-		case "${REPLY}" in 
-			cwd )  ;;
-			def )  [ -e "${LOCAL_GITS}" ] && cd $LOCAL_GITS || Prog_error 'noDir' ;;
-			* )  Prog_error 'noDir' ;;
-		esac
-	fi
-	gh repo clone "${DIRNAME}" && 
-		cd $DIRNAME && 
-		git checkout -b 'develop'
+copy_gitignore () {
+    if [[ -e "$GIT_IGNORE" && ! -f .gitignore ]]; then
+        $sh_c "cp $GIT_IGNORE ./.gitignore"
+    fi
 }
 
-Main_loop () {
-	local OPTION="${1}"; shift
-	local DIRNAME="${1}"; shift
-	local POS_ARG="${1}"
-
-	case "${OPTION}" in
-		-c | --gh-clone )
-			Clone_gh_repo "${DIRNAME}" "${POS_ARG}" 
-			;;
-		-n | --new-repo )
-			[ -z "${DIRNAME}" ] && Prog_error 'nullArg'
-			Check_remotes "${DIRNAME}" || Prog_error 'isDir'
-			New_blank_repo "${DIRNAME}" "${POS_ARG}" 
-			;;
-		-p | --push-existing )
-			Push_existing_repo "${DIRNAME}" "${POS_ARG}" 
-			;;
-		-q | --query-remotes )
-			Query_remotes 
-			;;
-		-h | * )
-			Usage
-			;;
-		esac
+commit_local_state () {
+    checkout_main
+    $sh_c "git add ."
+    $sh_c "git commit -m '$(git status --short)'"
 }
 
-if [[ ! "${@}" ]]; then
-	Prog_error 'nullArg'
-elif [ ! -e "${LOCAL_GITS}" ]; then
-	mkdir "${LOCAL_GITS}" || Prog_error 'noGit'
+send_upstream () {  
+    if $sh_c "gh repo create --$VISIBILITY --confirm $REPO_NAME"; then
+        $sh_c "git push --set-upstream origin $(git branch --show-current)"
+    else
+        Error 'create upstream failed'
+    fi
+}
+
+
+REPO_NAME=
+TEMPLATES=
+parse_args "$@"
+
+TEST_NAME='^[[:alnum:]](\-|\_|\.|[[:alnum:]])*[[:alnum:]]$'
+if [ ! "$REPO_NAME" ]; then
+    Usage
+elif [[ ! "$REPO_NAME" =~ $TEST_NAME ]]; then
+    Error "regex failed: $REPO_NAME"
 fi
 
-Main_loop "${@}"
+make_local_repository 
+if cd $REPO_NAME; then
+    make_readme
+    copy_gitignore
+    commit_local_state
+    checkout_main
+    send_upstream
+else
+    Error "cant access $REPO_NAME"
+fi
 
