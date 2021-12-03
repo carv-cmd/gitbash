@@ -11,7 +11,7 @@
 if ! ON_BRANCH="$(git branch --show-current)"; then
     exit 1
 elif [[ "$1" =~ ^-(a|\-all)$ ]]; then
-    git branch --all -vv
+    git branch --all -vv; exit
 fi
 
 sh_c='sh -c'
