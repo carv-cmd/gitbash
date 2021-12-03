@@ -20,7 +20,7 @@ ECHO=${ECHO:-}
 
 MASTER='main'
 ORIGIN=${ORIGIN:-origin}
-BRANCH_OPERATION="$1"
+BRANCH_TASK="$1"
 BRANCH_NAME="$2"
 
 
@@ -64,14 +64,14 @@ Error () {
 }
 
 execute_branch_task () {
-    case "$BRANCH_OPERATION" in 
+    case "$BRANCH_TASK" in 
         -l | --mk-locals )  make_locals;;
         -r | --mk-remotes ) make_remotes;; 
         -m | --merge )  merge_branches;;
         -L | --rm-locals ) remove_locals;;
         -R | --rm-remotes )  remove_remotes;;
         -h | --help )  Usage;;
-        * ) Error "unknown option: $BRANCH_OPERATION"
+        * ) Error "unknown option: $BRANCH_TASK"
     esac
 }
 
@@ -109,12 +109,11 @@ remove_remotes () {
     fi
 }
 
-
 if [ ! "$BRANCH_NAME" ]; then
     Usage > /dev/stderr
-elif [[ ! "$BRANCH_NAME" =~ ^[[:alnum:]]+(\-|\_|\.)*[[:alnum:]]*$ ]]; then
-    Error "invalid name: $1"
-else
-    execute_branch_task
+elif [[ ! "$BRANCH_NAME" =~ ^[[:alnum:]](\-|\_|\.|[[:alnum:]])*[a-z0-9]$ ]]; then
+    Error "invalid branch_name: $BRANCH_NAME"
 fi
+
+execute_branch_task
 
