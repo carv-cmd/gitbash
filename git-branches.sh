@@ -8,17 +8,20 @@
 # 
 # The stupid git branch manager
 
+if ! ON_BRANCH="$(git branch --show-current)"; then
+    exit 1
+elif [[ "$1" =~ ^-(a|\-all)$ ]]; then
+    git branch --all -vv
+fi
+
+sh_c='sh -c'
+ECHO=${ECHO:-}
+[ "$ECHO" ] && sh_c='echo'
+
 MASTER='main'
 ORIGIN=${ORIGIN:-origin}
-BRANCH_NAME=${BRANCH_NAME:-}
-CURRENT_BRANCH="$(git branch --show-current)"
-
-sh_c=${SHC:-}
-if [ "$sh_c" ]; then
-    sh_c='echo'
-else
-    sh_c='sh -c'
-fi
+BRANCH_OPERATION="$1"
+BRANCH_NAME="$2"
 
 
 Usage () {
@@ -32,23 +35,24 @@ usage: $PROGNAME
  $PROGNAME [-r|--mk-remotes]|[-R|--rm-remotes] BRANCH_NAME
 
 Options:
- -l, --mk-locals        Checkout new BRANCH_NAME from CURRENT_BRANCH.
+ -l, --mk-locals        Checkout new BRANCH_NAME from ON_BRANCH.
  -r, --mk-remotes       Identical to -l, but pushes BRANCH_NAME upstream.
- -m, --merge            Merge BRANCH_NAME into CURRENT_BRANCH.
+ -m, --merge            Merge BRANCH_NAME into ON_BRANCH.
  -L, --rm-locals        Delete local references to BRANCH_NAME
  -R, --rm-remotes       Delete remote reference to BRANCH_NAME.
  -a, --all              Print \`git branch --all -vv\` and exit.
  -h, --help             Display this help message and exit.
 
 =============================================
-For defaults set the following in your shell.
-==========
+Environment
+============
 ORIGIN: 
  Can only be set through environment.
 BRANCH: 
  Command line arguments take precedence.
-SHC:
- Set with any value to echo commands instead of executing them.
+ECHO:
+ Set true to echo cmds instead of executing them.
+ ex. \`ECHO=true $PROGNAME -mk-remotes BRANCH_NAME\`
 
 EOF
 exit
@@ -57,6 +61,18 @@ exit
 Error () {
     echo -e "error: $1\n" > /dev/stderr 
     exit 1
+}
+
+execute_branch_task () {
+    case "$BRANCH_OPERATION" in 
+        -l | --mk-locals )  make_locals;;
+        -r | --mk-remotes ) make_remotes;; 
+        -m | --merge )  merge_branches;;
+        -L | --rm-locals ) remove_locals;;
+        -R | --rm-remotes )  remove_remotes;;
+        -h | --help )  Usage;;
+        * ) Error "unknown option: $BRANCH_OPERATION"
+    esac
 }
 
 make_locals () {
@@ -72,7 +88,7 @@ make_remotes () {
 
 send_upstream () {
     if [ -n "$(git remote -v)" ]; then
-        $sh_c "git push $ORIGIN $CURRENT_BRANCH"
+        $sh_c "git push $ORIGIN $ON_BRANCH"
     fi
 }
 
@@ -93,36 +109,12 @@ remove_remotes () {
     fi
 }
 
-execute_branch_task () {
-    case "$BRANCH_OPERATION" in 
-        -l | --mk-locals )  make_locals;;
-        -r | --mk-remotes ) make_remotes;; 
-        -m | --merge )  merge_branches;;
-        -L | --rm-locals ) remove_locals;;
-        -R | --rm-remotes )  remove_remotes;;
-        -h | --help )  Usage;;
-        * ) Error "unknown option: $BRANCH_OPERATION"
-    esac
-}
 
-valid_name () {
-    if [[ ! "$BRANCH_NAME" =~ ^[[:alnum:]]+(\-|\_|\.)*[[:alnum:]]*$ ]]; then
-        Error "invalid name: $1"
-    else
-        return 0
-    fi
-}
-
-
-BRANCH_OPERATION="$1"
-BRANCH_NAME="$2"
-
-if [[ "$BRANCH_OPERATION" =~ ^-(a|\-all)$ ]]; then
-    git branch --all -vv
-elif [ ! "$BRANCH_NAME" ]; then
+if [ ! "$BRANCH_NAME" ]; then
     Usage > /dev/stderr
+elif [[ ! "$BRANCH_NAME" =~ ^[[:alnum:]]+(\-|\_|\.)*[[:alnum:]]*$ ]]; then
+    Error "invalid name: $1"
 else
-    valid_name  
     execute_branch_task
 fi
 
