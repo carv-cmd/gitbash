@@ -6,7 +6,11 @@
 # \__, |_|\__|_|_|_\__,_|_||_|
 # |___/                       
 # 
-# git-mngr.sh: 
+# Run ./git-{repos.sh,branch.sh,commit.sh,users,install-gh-cli}.sh
+
+GITBASH=~/bin/gitbash
+GIT_SUBCMD="git-$1.sh"; shift
+GITMAN=$GITBASH/$GIT_SUBCMD
 
 
 Usage () {
@@ -14,31 +18,64 @@ Usage () {
     cat >&2 <<- EOF
 usage: $PROGNAME [repo][branch][commit] OPTION
 
-Run any $PROGNAME subcommand with --help flag to see its options.
+Run \`$PROGNAME <subcommand> --help\` for specific details.
 
-Managers:
- users          Git user configs.
- repos          Git repositories. 
- branches       Git branches.
- commits        Git commits.
- help           Print this help message and exit.
+Subcommands:
+ repo               Git upstream repo manager. 
+ branch             Git branch manager.
+ commit             Git commit manager.
+ users              Git user configurations.
+ install-gh-cli     Install the Github CLI.
+ help               Print this help message and exit.
 
 EOF
 exit 1
 }
 
-ECHO=${ECHO:-}
-export ECHO
+Error () {
+    echo -e "error: $1\n" > /dev/stderr
+    exit 1
+}
 
-EXECUTE="$1"; shift
-subcmd=~/bin/gitbash/git-$EXECUTE.sh 
+execute_subcommand () {
+    echo
+    $sh_c "$GITMAN"
 
-if [[ ! "$EXECUTE" =~ ^(users|repos|branches|commits)$ ]]; then
+}
+
+
+if [[ "$GIT_SUBCMD" =~ ^help$ ]]; then
     Usage
-elif [ ! -f "$subcmd" ]; then
-    echo "error: $subcmd: doesn't exist"
-    Usage
+elif [ ! -f "$GITMAN" ]; then
+    Error "$GITMAN: doesn't exist"
+else
+    execute_subcommand "$@"
 fi
 
-$subcmd "$@"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
