@@ -21,10 +21,11 @@ Then verify the `$PATH` variable has been updated with `/home/$USER/bin` (Ubuntu
  env | grep "^PATH=.*:$HOME/bin:.*"
  ```
 > Note this is not requied to execute bash scripts.
-> * Given: ***/home/user/foo/bar/baz/git-commits.sh***
->  1) `cd /home/user/foo/bar/baz && ./git-commits.sh` 
->  2) `~/foo/bar/baz/git-commits.sh`
->  3) `cd ~/bin && ln -s ~/foo/bar/baz/git-commits.sh`
+> * Given: ***/home/user/foo/bar/baz/commits.sh***
+>  1) `cd /home/user/foo/bar/baz && ./commits.sh` 
+>  2) `~/foo/bar/baz/commits.sh`
+>  3) `cd ~/bin && ln -s ~/foo/bar/baz/commits.sh && commits.sh`
+
 ---
 ### Symlinks
 You can make symbolic links to shorten the command calls. 
@@ -32,15 +33,10 @@ You can make symbolic links to shorten the command calls.
  * If they were created before `git clone` ignore the red names (*broken links*), git clone will fix them.
 ```bash
 # ln -s <resource_path> <link_name>
-
 cd ~/bin
-ln -s ./gitbash/git-manager.sh gitman
-
-# Optional
-ln -s ./gitbash/git-repos.sh gitrepo
-ln -s ./gitbash/git-branches.sh gitbran
-ln -s ./gitbash/git-commits.sh gitcom
+ln -s ./gitbash/manager.sh gitman
 ```
+
 ---
 ### Authentication
 These scripts require an *SSH Key (Secure Shell)* or *PAT (Personal Access Token)*:
@@ -98,18 +94,19 @@ Finally you'll want to clone the *gitbash* repository into *~/bin*.
 
 ---
 ## Usage
----
-| ***Helpers*** | Description |
-|---|---|
-| `install-gh-cli.sh` | Installer for GitHub CLI ( `gh` ) |
-| `gitman` -> `git-manager.sh` | Wrapper for the following scripts |
-* Calling `gitman <subcmd> --help` returns a usage message.
+To install the GitHub CLI ( `gh` )
+* Use: `gitman install-gh-cli --run` 
 
+`gitman <subcmd> OPTIONS` is a wrapper for these scripts
+* Try: `gitman <subcmd> --help`
+
+---
 | ***Workflows*** | *Files* | *Description* |
 |---|---|---|
-| `gitman user` | `git-users.sh` | Git user config manager |
-| `gitman repo` | `gitrepo` -> `git-repos.sh` | Git repository manager |
-| `gitman branch` | `gitbran` -> `git-branches.sh` | Git branch manager |
-| `gitman commit` | `gitcom` -> `git-commits.sh` | Git commit manager |
+| `gitman user` | `users.sh` | Git user config manager |
+| `gitman repo` | `repo.sh` | Git repository manager |
+| `gitman branch` | `branche.sh` | Git branch manager |
+| `gitman commit` | `commit.sh` | Git commit manager |
+| `gitman upstream` | `upstream.sh` | Query upstream repositories |
 ---
  
