@@ -8,9 +8,6 @@
 # 
 # git-mngr.sh: 
 
-GITBASH=~/bin/gitbash/git
-EXECUTE="$1"
-shift
 
 Usage () {
     PROGNAME="${0##*/}"
@@ -19,21 +16,29 @@ usage: $PROGNAME [repo][branch][commit] OPTION
 
 Run any $PROGNAME subcommand with --help flag to see its options.
 
-Options:
- repo       Git repository manager. 
- branch     Git branch manager.
- commit     Git commit manager.
- help       Print this help message and exit.
+Managers:
+ users          Git user configs.
+ repos          Git repositories. 
+ branches       Git branches.
+ commits        Git commits.
+ help           Print this help message and exit.
 
 EOF
 exit 1
 }
 
-case "$EXECUTE" in
-    repo ) $GITBASH-repos.sh "$@";;
-    branch ) $GITBASH-branches.sh "$@";;
-    commit ) $GITBASH-commits.sh "$@";;
-    * ) Usage;;
-esac
+ECHO=${ECHO:-}
+export ECHO
 
+EXECUTE="$1"; shift
+subcmd=~/bin/gitbash/git-$EXECUTE.sh 
+
+if [[ ! "$EXECUTE" =~ ^(users|repos|branches|commits)$ ]]; then
+    Usage
+elif [ ! -f "$subcmd" ]; then
+    echo "error: $subcmd: doesn't exist"
+    Usage
+fi
+
+$subcmd "$@"
 
