@@ -8,15 +8,24 @@
 # 
 # Run ./git-{repos.sh,branch.sh,commit.sh,users,install-gh-cli}.sh
 
-GITBASH=~/bin/gitbash
-GIT_SUBCMD="git-$1.sh"; shift
+GITBASH=~/bin/gitbash/bin
+GIT_SUBCMD="$1.sh"; shift
 GITMAN=$GITBASH/$GIT_SUBCMD
+
+
+sh_c='echo'
+ECHO=${ECHO:-}
+if [ "$ECHO" ]; then
+    sh_c='sh -c'
+    export ECHO
+fi
 
 
 Usage () {
     PROGNAME="${0##*/}"
     cat >&2 <<- EOF
-usage: $PROGNAME [repo][branch][commit] OPTION
+setup: $PROGNAME [install-gh-cli]|[users] OPTION
+usage: $PROGNAME [upstream][repo]|[branch]|[commit] OPTION
 
 Run \`$PROGNAME <subcommand> --help\` for specific details.
 
@@ -25,7 +34,8 @@ Subcommands:
  branch             Git branch manager.
  commit             Git commit manager.
  users              Git user configurations.
- install-gh-cli     Install the Github CLI.
+ upstream           Print all upstream gh repos owned by you.
+ install-gh-cli     Install the Github CLI client.
  help               Print this help message and exit.
 
 EOF
@@ -37,45 +47,11 @@ Error () {
     exit 1
 }
 
-execute_subcommand () {
-    echo
-    $sh_c "$GITMAN"
-
-}
-
-
-if [[ "$GIT_SUBCMD" =~ ^help$ ]]; then
+if [[ "$GIT_SUBCMD" =~ ^help.sh$ ]]; then
     Usage
 elif [ ! -f "$GITMAN" ]; then
     Error "$GITMAN: doesn't exist"
-else
-    execute_subcommand "$@"
 fi
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+$GITMAN "$@"
 

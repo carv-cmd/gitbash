@@ -15,31 +15,8 @@ ECHO=${ECHO:-}
 
 VISIBILITY=${VISIBILITY:-private}
 LOCAL_GITS=${LOCAL_GITS:-$HOME/git-repos}
-GITBASH="$HOME/bin/gitbash"
-GIT_IGNORE="$GITBASH/template.gitignore"
-
-
-query_remotes () {
-    # GH API graphql query. See gh docs for details.
-    gh api graphql --paginate --cache '15s' -f query='
-    query($endCursor: String) {
-      viewer {
-        repositories(first: 100, after: $endCursor) {
-          nodes { nameWithOwner }
-          pageInfo {
-            hasNextPage
-               endCursor
-          }
-        }
-      }
-    }
-    '
-}
-
-if [[ "$1" =~ ^-(q|\-query-remotes)$ ]]; then
-    query_remotes
-    exit
-fi
+GITBASH=~/bin/gitbash
+GIT_IGNORE=$GITBASH/template.gitignore
 
 
 Usage () {
@@ -49,15 +26,18 @@ usage: $PROGNAME [ --query ] | [ --default ] REPO_NAME
 
 Options:
  -d, --default      Creates directory in \$LOCAL_GITS: $LOCAL_GITS, else use \$PWD.
- -q, --query        Get all GitHub.com remote repositories owned by user.
- -p, --public       Set repo pubic when pushing upstream. default=private.
+ -p, --public       Set upstream repository visibility. default=private.
  -h, --help         Display this help message and exit.
 
 Environment
 ============
 LOCAL_GITS:
- Default directory to create git repos in. 
- Current default is: $LOCAL_GITS
+ Use --default flag create repos in \$LOCAL_GITS.
+ \$LOCAL_GITS=$LOCAL_GITS
+
+VISIBILITY:
+ Command line arguments take precedence.
+ Visibility defaults to private.
 
 EOF
 exit
@@ -130,20 +110,19 @@ send_upstream () {
     if $sh_c "gh repo create --$VISIBILITY --confirm $REPO_NAME"; then
         $sh_c "git push --set-upstream origin $(git branch --show-current)"
     else
-        Error 'create upstream failed'
+        Error 'send_upstream failed'
     fi
 }
 
 
 REPO_NAME=
-TEMPLATES=
 parse_args "$@"
 
 TEST_NAME='^[[:alnum:]](\-|\_|\.|[[:alnum:]])*[[:alnum:]]$'
 if [ ! "$REPO_NAME" ]; then
     Usage
 elif [[ ! "$REPO_NAME" =~ $TEST_NAME ]]; then
-    Error "regex failed: $REPO_NAME"
+    Error "regex-failed: $REPO_NAME"
 fi
 
 make_local_repository 
@@ -153,7 +132,5 @@ if cd $REPO_NAME; then
     commit_local_state
     checkout_main
     send_upstream
-else
-    Error "cant access $REPO_NAME"
 fi
 
