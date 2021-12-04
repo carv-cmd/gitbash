@@ -13,9 +13,13 @@ On your machine, start by creating the `~/bin` directory if it doesn't already e
 `~/bin` will be added to your `$PATH` variable upon logging out and back in.
 This means any executable scripts in `~/bin` can be called globally like `cat` or `git init`.
 Then verify the `$PATH` variable has been updated with `/home/$USER/bin` (Ubuntu).
- * `mkdir ~/bin; exit`
- * `<login>; env | grep PATH`
-
+ ```bash
+ mkdir ~/bin
+ exit
+ <login>
+ # This should return a long string.
+ env | grep "^PATH=.*:$HOME/bin:.*"
+ ```
 > Note this is not requied to execute bash scripts.
 > * Given: ***/home/user/foo/bar/baz/git-commits.sh***
 >  1) `cd /home/user/foo/bar/baz && ./git-commits.sh` 
@@ -23,28 +27,32 @@ Then verify the `$PATH` variable has been updated with `/home/$USER/bin` (Ubuntu
 >  3) `cd ~/bin && ln -s ~/foo/bar/baz/git-commits.sh`
 ---
 ### Symlinks
-Optionally you can create symbolic links as to shorten the command calls. 
+You can make symbolic links to shorten the command calls. 
  * You can create these *before* or *after* cloning ***gitbash***.
- * If they were created before `git clone` ignore the red names (*broken links*), git clone fixes them.
+ * If they were created before `git clone` ignore the red names (*broken links*), git clone will fix them.
 ```bash
 # ln -s <resource_path> <link_name>
 
 cd ~/bin
+ln -s ./gitbash/git-manager.sh gitman
+
+# Optional
 ln -s ./gitbash/git-repos.sh gitrepo
 ln -s ./gitbash/git-branches.sh gitbran
 ln -s ./gitbash/git-commits.sh gitcom
 ```
 ---
 ### Authentication
-These scripts require an *SSH Key* and a *PAT*;
+These scripts require an *SSH Key (Secure Shell)* or *PAT (Personal Access Token)*:
 
-[*SSH Keys*](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/about-ssh) 
+#### [*SSH Keys*](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/about-ssh) 
  * The script `git-users.sh` has an option to generate a valid *ssh-key-pair* for you. 
  * See [**here**](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/about-ssh),
  for instructions on adding this key to your GitHub account. 
  * Additionally `git-users.sh --help` will display details about ssh key generation.
 
-On the Linux side you essentially do the following:
+On the Linux side you essentially do the following, 
+see [*here*](/git-ssh.md) for more details:
 ```txt  
 # gh-ssh-config.txt
 Host gh
@@ -60,10 +68,21 @@ Host gh
 ssh-keygen -t id_ed25519 -C '<github_email>@<email>.com'
 cat ./gh-ssh-config.txt >> ~/.ssh/config
 ssh -T gh
+
+# SEE THE END OF THIS README FOR GH-INSTALLER.
+# If you want to use SSH with GH-CLI; `~/.config/gh/config.yml` needs to be modified.
+# This can be done with your favorite text editor or sed.
+
+# Modify record -> 'git_protocol: (https|ssh)'
+vi|vim|nano ~/.config/gh/config.yml
+
+# Using `sed` to modify file inplace. 
+# Run without '-i' option to perform dryrun.
+sed -i 's/^git_protocol: https/git_protocol: ssh/' ~/.config/gh/config.yml
 ```
 
-[*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token). 
-* For details about PAT, see 
+#### [*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token). 
+* For more details about PAT formats, see 
 [**here**](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github#githubs-token-formats)
 * Create a token on GitHub.com and add to `~/.bashrc` file with the following:
 ```bash
@@ -80,24 +99,17 @@ Finally you'll want to clone the *gitbash* repository into *~/bin*.
 ---
 ## Usage
 ---
-| ***Helper Scripts*** | Description |
+| ***Helpers*** | Description |
 |---|---|
-| `git-users.sh` | Set basic global configurations (~/.gitconfig) |
-| `install-gh-cli.sh` | Installer for GitHub CLI ( `gh` )
-||
-| ***Workflow Scripts*** | Description |
-| `gitrepo` -> `git-repos.sh` | Git repository manager |
-| `gitbran` -> `git-branches.sh` | Git branch manager |
-| `gitcom` -> `git-commits.sh` | Git commit manager |
----
-If you want to use SSH with GH-CLI; `~/.config/gh/config.yml` needs to be modified.
- * This can be done with your favorite text editor or the following `sed` commands.
-```bash
-# Modify record -> 'git_protocol: (https|ssh)'
-vi|vim|nano ~/.config/gh/config.yml
+| `install-gh-cli.sh` | Installer for GitHub CLI ( `gh` ) |
+| `gitman` -> `git-manager.sh` | Wrapper for the following scripts |
+* Calling `gitman <subcmd> --help` returns a usage message.
 
-# Use `sed` to modify file inplace. 
-# Run without '-i' option to dryrun modifications.
-sed -i 's/^git_protocol: https/git_protocol: ssh/' ~/.config/gh/config.yml
-```
+| ***Workflows*** | *Files* | *Description* |
+|---|---|---|
+| `gitman user` | `git-users.sh` | Git user config manager |
+| `gitman repo` | `gitrepo` -> `git-repos.sh` | Git repository manager |
+| `gitman branch` | `gitbran` -> `git-branches.sh` | Git branch manager |
+| `gitman commit` | `gitcom` -> `git-commits.sh` | Git commit manager |
+---
  
