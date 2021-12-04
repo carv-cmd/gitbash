@@ -88,8 +88,7 @@ push_upstream () {
 
 
 if [ ! -d $PWD/.git ]; then
-    git status
-    exit
+    Error 'no ./.git directory'
 fi
 
 COMMIT_MSG= 
