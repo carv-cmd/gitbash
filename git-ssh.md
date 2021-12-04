@@ -1,8 +1,8 @@
-# SSH for local git <-> github
+# SSH for GitHub
 
 ==============================================================
-==============================================================
-1). Generate id_ed25591 key pair (save default, set passphrase)
+1). Generate id\_ed25519 key pair 
+ (save default, set passphrase)
 	1b). ssh-keygen -t id_ed25591 -C 'github_email@mail.com'
 
 

@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #       _ _                        
-#  __ _(_) |_ _ _ ___ _ __  ___ ___
-# / _` | |  _| '_/ -_) '_ \/ _ (_-<
-# \__, |_|\__|_| \___| .__/\___/__/
+#  __ _(_) |_ _ _ ___ _ __  ___
+# / _` | |  _| '_/ -_) '_ \/ _ \
+# \__, |_|\__|_| \___| .__/\___/
 # |___/              |_|           
 # 
 # Manage upstream GitHub repositories.
@@ -13,8 +13,8 @@ sh_c='sh -c'
 ECHO=${ECHO:-}
 [ "$ECHO" ] && sh_c='echo'
 
+VISIBILITY=${VISIBILITY:-private}
 LOCAL_GITS=${LOCAL_GITS:-$HOME/git-repos}
-
 GITBASH="$HOME/bin/gitbash"
 GIT_IGNORE="$GITBASH/template.gitignore"
 
@@ -101,8 +101,11 @@ make_local_repository () {
 }
 
 checkout_main () {
-    if [[ ! "$(git branch --show-current)" =~ ^main$ ]]; then
-        $sh_c 'git checkout -B main'
+    if cd $REPO_NAME; then
+        if [[ ! "$(git branch --show-current)" =~ ^main$ ]]; then
+            $sh_c 'git checkout -B main'
+        fi
+        cd - > /dev/null
     fi
 }
 
@@ -119,7 +122,6 @@ copy_gitignore () {
 }
 
 commit_local_state () {
-    checkout_main
     $sh_c "git add ."
     $sh_c "git commit -m '$(git status --short)'"
 }
