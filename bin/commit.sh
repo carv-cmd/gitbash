@@ -100,7 +100,7 @@ parse_args "${@}"
 update_git_index
 commit_changes
 
-[ "$PUSH" ] && push_upstream
-
-
+if [ "$PUSH" ]; then
+    push_upstream
+fi
 
