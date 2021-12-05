@@ -27,10 +27,13 @@ Then verify the `$PATH` variable has been updated with `/home/$USER/bin` (Ubuntu
 >  3) `cd ~/bin && ln -s ~/foo/bar/baz/commits.sh && commits.sh`
 
 ---
-### Symlinks
-You can make symbolic links to shorten the command calls. 
- * You can create these *before* or *after* cloning ***gitbash***.
- * If they were created before `git clone` ignore the red names (*broken links*), git clone will fix them.
+### Clone
+Next you'll want to clone the *gitbash* repository into *~/bin*.
+* `cd ~/bin && git clone https://github.com/carv-cmd/gitbash.git`
+---
+### Symlink `gitman`
+Optionally you can create the symbolic link [*gitman -> gitbash/gitman.sh*](gitman.sh). 
+* `gitman <subcmd> OPTIONS` can then be called anywhere.
 ```bash
 # ln -s <resource_path> <link_name>
 cd ~/bin
@@ -38,46 +41,54 @@ ln -s ./gitbash/manager.sh gitman
 ```
 
 ---
+## Usage
+
+**`gitman <subcmd> OPTIONS`** is a wrapper for these scripts
+* Try: `gitman <subcmd> --help`
+
+---
+| ***Workflows*** | *Files* | *Description* |
+|---|---|---|
+| `gitman users` | [*`users.sh`*](bin/users.sh) | Git user setup & basic configuration |
+| `gitman repo` | [*`repo.sh`*](bin/repo.sh) | Create upstream Git repositories |
+| `gitman branch` | [*`branch.sh`*](bin/branch.sh) | Create, merge, delete; local & remote |
+| `gitman commit` | [*`commit.sh`*](bin/commit.sh) | Git add-commit-push wrapper |
+| `gitman upstream` | [*`upstream.sh`*](bin/upstream.sh) | Query upstream repositories |
+
+The GitHub CLI (`gh`) is only required for working with remote github.com repos.
+* To install the GitHub CLI ( `gh` ), simply `gitman install-gh-cli [--run]`.
+* *Note this is only tested on Ubuntu20.04.*
+
+---
 ### Authentication
 These scripts require an *SSH Key (Secure Shell)* or *PAT (Personal Access Token)*:
 
 #### [*SSH Keys*](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/about-ssh) 
- * The script `git-users.sh` has an option to generate a valid *ssh-key-pair* for you. 
+ * Run `gitman users --keygen` to generate a valid *ssh-key-pair* for you. 
  * See [**here**](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/about-ssh),
  for instructions on adding this key to your GitHub account. 
- * Additionally `git-users.sh --help` will display details about ssh key generation.
+ * See [*GIT-SSH.md*](/GIT-SSH.md) for details on setting up SSH.
 
-On the Linux side you essentially do the following, 
-see [*here*](/git-ssh.md) for more details:
-```txt  
-# gh-ssh-config.txt
-Host gh
-    Hostname github.com
-    User git
-    IdentityFile ~/.ssh/id_ed25519
-    Port 22
-    Protocol 2
-    PreferredAuthentications publickey
-```
 ```bash
-
 ssh-keygen -t id_ed25519 -C '<github_email>@<email>.com'
 cat ./gh-ssh-config.txt >> ~/.ssh/config
 ssh -T gh
+```
 
-# SEE THE END OF THIS README FOR GH-INSTALLER.
-# If you want to use SSH with GH-CLI; `~/.config/gh/config.yml` needs to be modified.
+```bash
+# For SSH with GH-CLI; `~/.config/gh/config.yml` needs to be modified.
 # This can be done with your favorite text editor or sed.
 
 # Modify record -> 'git_protocol: (https|ssh)'
-vi|vim|nano ~/.config/gh/config.yml
+[vim|nano] ~/.config/gh/config.yml
 
-# Using `sed` to modify file inplace. 
-# Run without '-i' option to perform dryrun.
-sed -i 's/^git_protocol: https/git_protocol: ssh/' ~/.config/gh/config.yml
+# Using `sed`, modify file inplace. Dryrun without [-i].
+sed [-i] 's/^git_protocol: https/git_protocol: ssh/' ~/.config/gh/config.yml
 ```
 
-#### [*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token). 
+---
+**If you plan to use *HTTPS* remote connections, you will need a PAT.**
+* [*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 * For more details about PAT formats, see 
 [**here**](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github#githubs-token-formats)
 * Create a token on GitHub.com and add to `~/.bashrc` file with the following:
@@ -88,25 +99,5 @@ echo "GH_TOKEN=$TOKEN" >> ~/.bashrc
 source ~/.bashrc
 ```
 ---
-### Clone
-Finally you'll want to clone the *gitbash* repository into *~/bin*.
-* `cd ~/bin && git clone https://github.com/carv-cmd/gitbash.git`
 
----
-## Usage
-To install the GitHub CLI ( `gh` )
-* Use: `gitman install-gh-cli --run` 
-
-`gitman <subcmd> OPTIONS` is a wrapper for these scripts
-* Try: `gitman <subcmd> --help`
-
----
-| ***Workflows*** | *Files* | *Description* |
-|---|---|---|
-| `gitman user` | `users.sh` | Git user config manager |
-| `gitman repo` | `repo.sh` | Git repository manager |
-| `gitman branch` | `branche.sh` | Git branch manager |
-| `gitman commit` | `commit.sh` | Git commit manager |
-| `gitman upstream` | `upstream.sh` | Query upstream repositories |
----
  
