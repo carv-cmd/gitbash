@@ -4,14 +4,14 @@
  * *This is not a Git strategy!* 
  * *Just a tool to help assist in creating one.*
 
-## Setup
-
+---
+## Setup Help
 ### /$HOME/bin
 * *~/bin == $HOME/bin*
 
 On your machine, start by creating the `~/bin` directory if it doesn't already exist. 
 `~/bin` will be added to your `$PATH` variable upon logging out and back in.
-This means any executable scripts in `~/bin` can be called globally like `cat` or `git init`.
+This means any executable files in `~/bin` can be called globally like you would `cat`.
 Then verify the `$PATH` variable has been updated with `/home/$USER/bin` (Ubuntu).
  ```bash
  mkdir ~/bin
@@ -27,12 +27,15 @@ Then verify the `$PATH` variable has been updated with `/home/$USER/bin` (Ubuntu
 >  3) `cd ~/bin && ln -s ~/foo/bar/baz/commits.sh && commits.sh`
 
 ---
-### Clone
-Next you'll want to clone the *gitbash* repository into *~/bin*.
-* `cd ~/bin && git clone https://github.com/carv-cmd/gitbash.git`
+## Clone into ~/bin
+```bash
+cd ~/bin
+git clone https://github.com/carv-cmd/gitbash.git
+```
+
 ---
 ### Symlink `gitman`
-Optionally you can create the symbolic link [*gitman -> gitbash/gitman.sh*](gitman.sh). 
+Optionally you can create the symbolic link gitman -> [*gitbash/gitman.sh*](gitman.sh). 
 * `gitman <subcmd> OPTIONS` can then be called anywhere.
 ```bash
 # ln -s <resource_path> <link_name>
@@ -43,7 +46,7 @@ ln -s ./gitbash/manager.sh gitman
 ---
 ## Usage
 
-**`gitman <subcmd> OPTIONS`** is a wrapper for these scripts
+**`gitman <subcmd> OPTIONS`**
 * Try: `gitman <subcmd> --help`
 
 ---
@@ -61,7 +64,7 @@ The GitHub CLI (`gh`) is only required for working with remote github.com repos.
 
 ---
 ### Authentication
-These scripts require an *SSH Key (Secure Shell)* or *PAT (Personal Access Token)*:
+An *SSH Key (Secure Shell)* or *PAT (Personal Access Token)* is required when working with upsreams.
 
 #### [*SSH Keys*](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/about-ssh) 
  * Run `gitman users --keygen` to generate a valid *ssh-key-pair* for you. 
@@ -87,8 +90,7 @@ sed [-i] 's/^git_protocol: https/git_protocol: ssh/' ~/.config/gh/config.yml
 ```
 
 ---
-**If you plan to use *HTTPS* remote connections, you will need a PAT.**
-* [*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
+**If you plan to use *HTTPS* remote connections, you will need a [*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 * For more details about PAT formats, see 
 [**here**](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github#githubs-token-formats)
 * Create a token on GitHub.com and add to `~/.bashrc` file with the following:
