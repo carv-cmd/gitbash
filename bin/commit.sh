@@ -1,12 +1,6 @@
 #!/bin/bash
 
-#       _ _                
-#  __ _(_) |_ __ ___ _ __  
-# / _` | |  _/ _/ _ \ '  \ 
-# \__, |_|\__\__\___/_|_|_|
-# |___/                    
-# 
-# gitcom: Quick and simple `git (add|commit)` manager
+# Quick and simple `git (add|commit|push)` wrapper
 
 PROGNAME=${0##*/}
 GITBASH="${HOME}/bin/gitbash"

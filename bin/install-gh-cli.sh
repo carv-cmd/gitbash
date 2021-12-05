@@ -47,14 +47,14 @@ add_gh_upstream_source () {
 }
 
 sh_c='echo'
-if [[ "$1" =~ ^--run$ ]]; then
+if [[ "$1" =~ ^--?h(elp)?$ ]]; then
+    Usage
+elif [[ "$1" =~ ^--run$ ]]; then
     echo "sh_c='sudo -E sh -c'"
 fi
 
 [ ! -e "$GH_GPG_KEY" ] && get_gpg_key
 [ ! -f "$UPSTREAM_REF" ] && add_gh_upstream_source
-
-$sh_c 'apt-get update -y && 
-    apt-get upgrade && 
-    apt-get install gh'
+$sh_c 'apt-get update -y && apt-get upgrade' && 
+    $sh_c 'apt-get install gh'
 

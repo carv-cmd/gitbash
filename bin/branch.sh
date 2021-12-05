@@ -1,11 +1,5 @@
 #!/bin/bash
 
-#       _ _   _                  
-#  __ _(_) |_| |__ _ _ __ _ _ _  
-# / _` | |  _| '_ \ '_/ _` | ' \ 
-# \__, |_|\__|_.__/_| \__,_|_||_|
-# |___/                          
-# 
 # The stupid git branch manager
 
 if ! ON_BRANCH="$(git branch --show-current)"; then
@@ -27,7 +21,7 @@ BRANCH_NAME="$2"
 Usage () {
     PROGNAME="${0##*/}"
     cat >&2 <<- EOF
-usage: $PROGNAME
+usage: $PROGNAME 
 
  $PROGNAME [-a|--all]
  $PROGNAME [-m|--merge] BRANCH_NAME
@@ -67,7 +61,7 @@ execute_branch_task () {
     case "$BRANCH_TASK" in 
         -l | --mk-locals )  make_locals;;
         -r | --mk-remotes ) make_remotes;; 
-        -m | --merge )  merge_branches;;
+        -m | --merge )  merge_upstream;;
         -L | --rm-locals ) remove_locals;;
         -R | --rm-remotes )  remove_remotes;;
         -h | --help )  Usage;;
@@ -92,7 +86,7 @@ send_upstream () {
     fi
 }
 
-merge_branches () {
+merge_upstream () {
     if $sh_c "git merge $BRANCH_NAME"; then
         send_upstream
     fi

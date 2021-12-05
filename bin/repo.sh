@@ -1,11 +1,5 @@
 #!/bin/bash
 
-#       _ _                        
-#  __ _(_) |_ _ _ ___ _ __  ___
-# / _` | |  _| '_/ -_) '_ \/ _ \
-# \__, |_|\__|_| \___| .__/\___/
-# |___/              |_|           
-# 
 # Manage upstream GitHub repositories.
 VERSION='1.01'
 
@@ -95,7 +89,7 @@ make_readme () {
     fi
 }
 
-copy_gitignore () {
+cp_gitignore () {
     if [[ -e "$GIT_IGNORE" && ! -f .gitignore ]]; then
         $sh_c "cp $GIT_IGNORE ./.gitignore"
     fi
@@ -128,7 +122,7 @@ fi
 make_local_repository 
 if cd $REPO_NAME; then
     make_readme
-    copy_gitignore
+    cp_gitignore
     commit_local_state
     checkout_main
     send_upstream

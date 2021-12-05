@@ -1,26 +1,28 @@
 #/bin/bash
 
-# Configure Git --global's for user account (Ubuntu).
-# Default editor is set as Vim, branch name is 'main' to mirror GitHub default.
-# Username has no filter, email regex filters only alnum & ( ., -, _, @ ).
-# SSH --keygen uses email associated with user in ~/.gitconfig.
+sh_c='echo'
+# sh_c='sh -c'
+ECHO=${ECHO:-}
+[ "$ECHO" ] && sh_c='echo'
 
-PROGNAME="${0##*/}"
 
 Usage () {
+    PROGNAME="${0##*/}"
     cat <<- EOF
-$PROGNAME: the stupid git repo manager
+The stupid git user manager
 
 usage: 
-  $PROGNAME --user-info <name> <gh_email> 
-  $PROGNAME [ --basic ] [ --keygen ] [ --token <gh_token> ]
+  $PROGNAME [--name <name>][--email <gh_email>]
+  $PROGNAME [--colors][--keygen <email>][--token <gh_token>]
 
 Flags:
- -b, --basic	    Set: autocolor, editor=vim, default_branch_name=main.
- -k, --keygen	    Generate id_25519 ssh key for git-over-ssh.
- -t, --token        Add token generated for 'gh auth login'.
- -u, --user-info    Set Git username and email for $USER.
- -h, --help         Display this help message and exit.
+ -c, --colors       Global autocoloring for logs, diff, etc
+ -e, --editor       Set the editor git will use, default=vim
+ -E, --email        Email address associated with GitHub.com
+ -N, --name         Username associated with GitHub.com
+ -K, --keygen	    Generate id_25519 ssh key for git-over-ssh.
+ -T, --token        Add token generated for 'gh auth login'(https)
+ -h, --help         Display this help message and exit
 
 EOF
 exit 1
@@ -31,91 +33,108 @@ Error () {
     exit 1
 }
 
-Add_ssh_key () {
-    local KEY_NAME="$HOME/.ssh/id_ed25519"
-    [ -r "${KEY_NAME}.pub" ] && 
-        Error "$KEY_NAME: exists"
-
-    USER_EMAIL="$(git config --global --get user.email)"
-    if [[ ! "${USER_EMAIL}" ]]; then
-        Error '--keygen require user.email to be set'
-    fi
-
-    ssh-keygen -o -t ed25519 -C $USER_EMAIL && cat "${KEY_NAME}.pub"
-}
-
-Add_gh_token () {
-    if [[ "$(grep 'GH_TOKEN' "${HOME}/.bashrc")" ]]; then
-        Error 'found token in ~/.bashrc'
-    fi
-
-    if [ -n "${ADD_TOKEN}" ]; then
-        echo "# Added: $(date +%D)" >> "${HOME}/.bashrc"
-        echo "export GH_TOKEN='${ADD_TOKEN}'" >> "${HOME}/.bashrc"
-        source "${HOME}/.bashrc"
-    fi
-    unset 'ADD_TOKEN'
-}
-
-Set_git_config () {
-    local CHK_CONFIG="$(git config --global --get ${1})"
-    if [[ ! "$CHK_CONFIG"  ]]; then
-        git config --global "$1" "$2" || Prog_error '003'
-    else
-        Error "fatal: '$1 $CHK_CONFIG' <- $2"
-    fi
-}
-
-Set_basic () {
-    # Default branch name Git gives forks.
-    Set_git_config 'init.defaultBranch' 'main'
-    # Set the default editor Git uses; default is Vim.
-    Set_git_config 'core.editor' 'vim'
-
-    # Set colors: color.(status|branch|interactive|diff)=auto
-    BASE_COL=('status' 'branch' 'interactive' 'diff')
-    for SET_COL in "${BASE_COL[@]}"; do 
-        Set_git_config "color.$SET_COL" 'auto'
-    done
-    }
-
-Set_user_info () {
-    # Set Git $1:username and $2:email.
-    if [[ "$1" && "$2" ]]; then
-        if [[ "$2" =~ ^([[:alnum:]]|\.|\_|\-)+@([[:alnum:]]|\.)+\.[a-z]{2,5}$ ]]; then
-            Set_git_config 'user.name' "$1"
-            Set_git_config 'user.email' "$2"
-        else
-            Error 'user.email conflict'
-        fi
-    else
-        Error 'user.name conflict'
-    fi
-}
-
-Main_loop () {
+parse_args () {
+    ARG=
     while [ -n "$1" ]; do
-        case "$1" in
-            -b | --basic )  Set_basic;;
-            -u | --user-info )  shift; Set_user_info "$1" "$2"; shift;;
-            -k | --keygen )  GEN_SSH_KEY=1;;
-            -t | --token )  shift; ADD_TOKEN="$1";;
-            -h | --help )  Usage;;
-            -* | --* )  Error "argument: $1";;
+        ARG="$1"; shift
+        case "$ARG" in
+            -c | --colors ) COLORS=1; continue;;
+            -e | --editor ) EDITOR="$1";;
+            -E | --email ) GITMAIL="$1";;
+            -N | --name ) GITNAME="$1";;
+            -K | --keygen ) GEN_SSH_KEY=1; continue;;
+            -T | --token ) ADD_TOKEN="$1";;
+            -* | --* )  Usage;;
             * )  Error "argument: $1";;
         esac
         shift
     done
-    # Generate SSH id_ed25519 public/private key pair
-    [[ "$GEN_SSH_KEY" ]] && Add_ssh_key
-
-    # Add `export GH_TOKEN=...` to $USER/.bashrc
-    [[ "$ADD_TOKEN" ]] && Add_gh_token "$ADD_TOKEN"
 }
 
+set_git_configs () {
+    local KEY="$1"
+    local VALUE="$1"
+    local CHK_CONFIG="$(git config --global --get $1)"
+    if [[ ! "$CHK_CONFIG" ]]; then
+        $sh_c "git config --global '$KEY' '$VALUE'"
+    else
+        echo "'$KEY=$CHK_CONFIG' <-x- $VALUE"
+    fi
+}
 
-if [[ ! "${@}" ]]; then
-    Usage
-fi
-Main_loop "$@"
+auto_colors () {
+    if [ "$AUTO_COLORS" ]; then
+        BASE_COL=('status' 'branch' 'interactive' 'diff')
+        for SET_COL in "${BASE_COL[@]}"; do 
+            Set_git_config "color.$SET_COL" 'auto'
+        done
+    fi
+}
+
+set_text_editor () {
+    if [ "$EDITOR" ]; then
+        Set_git_config 'core.editor' 'vim'
+    fi
+}
+
+set_user_name () {
+    if [ "$GITNAME" ]; then
+        Set_git_config 'user.name' "$1"
+    fi
+}
+
+set_email () {
+    if [[ "$GITMAIL" =~ ^([[:alnum:]]|\.|\_|\-)+@([[:alnum:]]|\.)+\.[a-z]{2,5}$ ]]; then
+        set_git_config 'user.email' "$GITMAIL"
+    fi
+}
+
+make_ssh_key () {
+    GH_KEY_PAIR=~/.ssh/id_ed25519
+    [ -r "$GH_KEY_PAIR.pub" ] && Error "found: $GH_KEY_PAIR"
+    
+    ssh_key_comment
+    if ssh-keygen -o -t ed25519 -C $USER_EMAIL; then
+        cat "${KEY_NAME}.pub"
+    fi
+}
+
+ssh_key_comment () {
+    USER_EMAIL="$(git config --global --get user.email)"
+    [ "$GEN_SSH_KEY" ] && USER_EMAIL="$GEN_SSH_KEY"
+    if [[ ! "$USER_EMAIL" ]]; then
+        Error '--keygen requires an email for comment'
+    fi
+}
+
+bashrc_append_token () {
+    if grep 'GH_TOKEN' ~/.bashrc; then
+        Error 'found token in ~/.bashrc'
+    elif [ -n "$ADD_TOKEN" ]; then
+        token_string >> ~/.bashrc
+        source ~/.bashrc
+        unset 'ADD_TOKEN'
+    fi
+}
+
+token_string () {
+    cat <<- EOF
+# Added on: $(date +%D)
+export GH_TOKEN='$ADD_TOKEN'
+EOF
+}
+
+####
+[[ ! "$@" ]] && Usage
+parse_args "$@"
+auto_colors
+set_text_editor
+set_user_name
+set_email
+
+# Generate SSH id_ed25519 public/private key pair
+make_ssh_key
+
+# Add `export GH_TOKEN=...` to $USER/.bashrc
+bashrc_append_token
 

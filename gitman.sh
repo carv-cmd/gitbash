@@ -11,15 +11,7 @@
 GITBASH=~/bin/gitbash/bin
 GIT_SUBCMD="$1.sh"; shift
 GITMAN=$GITBASH/$GIT_SUBCMD
-
-
-sh_c='echo'
 ECHO=${ECHO:-}
-if [ "$ECHO" ]; then
-    sh_c='sh -c'
-    export ECHO
-fi
-
 
 Usage () {
     PROGNAME="${0##*/}"
