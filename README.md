@@ -1,8 +1,5 @@
 # gitbash
-
-*Wrappers for Git on Ubuntu-20.04.*
- * *This is not a Git strategy!* 
- * *Just a tool to help assist in creating one.*
+*Wrapper for Git on Ubuntu-20.04.*
 
 ---
 ## Setup Help
@@ -50,7 +47,7 @@ ln -s ./gitbash/manager.sh gitman
 * Try: `gitman <subcmd> --help`
 
 ---
-| ***Workflows*** | *Files* | *Description* |
+| ***Subcommand*** | *Files* | *Description* |
 |---|---|---|
 | `gitman users` | [*`users.sh`*](bin/users.sh) | Git user setup & basic configuration |
 | `gitman repo` | [*`repo.sh`*](bin/repo.sh) | Create upstream Git repositories |
@@ -90,7 +87,7 @@ sed [-i] 's/^git_protocol: https/git_protocol: ssh/' ~/.config/gh/config.yml
 ```
 
 ---
-**If you plan to use *HTTPS* remote connections, you will need a [*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
+**If you plan to use *HTTPS* remote connections, you will need a [*Personal Access Tokens (PAT)*](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).**
 * For more details about PAT formats, see 
 [**here**](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github#githubs-token-formats)
 * Create a token on GitHub.com and add to `~/.bashrc` file with the following:
