@@ -52,7 +52,7 @@ ln -s $GITBASH_LOCATION/gitbash/manager.sh gitman
 # See `gitman` features
 gitman help
 ```
-
+---
 ## Usage
 ### **`gitman <subcmd> OPTIONS`**
 * Try: `gitman <subcmd> --help`
@@ -75,7 +75,7 @@ To install the `gh-cli`, simply run the following commands.
 gitman install-gh-cli [--run]
 gh --help
 ``` 
-
+---
 ## GitHub CLI Authentication
 * Only one of the following is **required** but *both can exist simultaneously* on the same machine.
 
