@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # Manage upstream GitHub repositories.
-VERSION='1.01'
+VERSION='1.10'
+GITBASH=~/bin/gitbash
 
-sh_c='sh -c'
+#sh_c='sh -c'
+sh_c='echo'
 ECHO=${ECHO:-}
-[ "$ECHO" ] && sh_c='echo'
+[ "$ECHO" ] && sh_c='sh -c'
 
 VISIBILITY=${VISIBILITY:-private}
 LOCAL_GITS=${LOCAL_GITS:-$HOME/git-repos}
-GITBASH=~/bin/gitbash
 GIT_IGNORE=$GITBASH/template.gitignore
 
 
@@ -70,16 +71,12 @@ make_default () {
 make_local_repository () {
     if [ ! -d "$REPO_NAME/.git" ]; then
         $sh_c "git init $REPO_NAME"
-        checkout_main
     fi
 }
 
 checkout_main () {
-    if cd $REPO_NAME; then
-        if [[ ! "$(git branch --show-current)" =~ ^main$ ]]; then
-            $sh_c 'git checkout -B main'
-        fi
-        cd - > /dev/null
+    if [[ ! "$(git branch --show-current)" =~ ^main$ ]]; then
+        $sh_c 'git checkout -B main'
     fi
 }
 
@@ -100,14 +97,24 @@ commit_local_state () {
     $sh_c "git commit -m '$(git status --short)'"
 }
 
-send_upstream () {  
-    if $sh_c "gh repo create --$VISIBILITY --confirm $REPO_NAME"; then
-        $sh_c "git push --set-upstream origin $(git branch --show-current)"
-    else
-        Error 'send_upstream failed'
+create_upstream () {
+    if ! $sh_c "gh repo create $REPO_NAME --$VISIBILITY --source=."; then
+        Error 'create upstream failed'
     fi
 }
 
+push_upstream () {
+    if ! $sh_c "git push --set-upstream origin main"; then
+        Error 'push_upstream failed'
+    fi
+}
+
+prepare_repository () {
+    checkout_main
+    make_readme
+    cp_gitignore
+    commit_local_state
+}
 
 REPO_NAME=
 parse_args "$@"
@@ -120,11 +127,10 @@ elif [[ ! "$REPO_NAME" =~ $TEST_NAME ]]; then
 fi
 
 make_local_repository 
-if cd $REPO_NAME; then
-    make_readme
-    cp_gitignore
-    commit_local_state
-    checkout_main
-    send_upstream
+if ! cd $REPO_NAME; then
+    Error "can't \`cd\` into $REPO_NAME"
 fi
+prepare_repository
+create_upstream
+push_upstream
 
