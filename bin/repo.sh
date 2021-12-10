@@ -4,8 +4,7 @@
 VERSION='1.10'
 GITBASH=~/bin/gitbash
 
-#sh_c='sh -c'
-sh_c='echo'
+sh_c='sh -c'
 ECHO=${ECHO:-}
 [ "$ECHO" ] && sh_c='sh -c'
 
