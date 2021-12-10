@@ -5,13 +5,15 @@
 # / _` | |  _| '  \/ _` | ' \ 
 # \__, |_|\__|_|_|_\__,_|_||_|
 # |___/                       
-# 
-# Run ./git-{repos.sh,branch.sh,commit.sh,users,install-gh-cli}.sh
+#
 
-GITBASH=~/bin/gitbash/bin
-GIT_SUBCMD="$1.sh"; shift
-GITMAN=$GITBASH/$GIT_SUBCMD
+GITBASH=${GITBASH:-~/bin/gitbash/bin}
 ECHO=${ECHO:-}
+export ECHO
+
+FLAG=$1; shift
+ARGS="$@"
+
 
 Usage () {
     PROGNAME="${0##*/}"
@@ -22,12 +24,12 @@ usage: $PROGNAME [upstream][repo]|[branch]|[commit] OPTION
 Run \`$PROGNAME <subcommand> --help\` for specific details.
 
 Subcommands:
- repo               Git upstream repo manager. 
- branch             Git branch manager.
- commit             Git commit manager.
- users              Git user configurations.
- upstream           Print all upstream gh repos owned by you.
- install-gh-cli     Install the Github CLI client.
+ repo               Manage upstream repositories.
+ branch             Manage local and remote branches.
+ commit             Git add/commit/push wrapper.
+ users              User config and authentication.
+ view               View your Github.com repositories.
+ get-gh-cli         Install the Github CLI client.
  help               Print this help message and exit.
 
 EOF
@@ -39,11 +41,29 @@ Error () {
     exit 1
 }
 
-if [[ "$GIT_SUBCMD" =~ ^help.sh$ ]]; then
+run_subcommand () {
+    if ! validate_command; then
+        Error "$FLAG: doesn't exist"
+    else
+        $GITMAN "$ARGS"
+    fi
+}
+
+validate_command () {
+    if [ ! -f "$GITMAN" ]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+if [ ! "$FLAG" ]; then
     Usage
-elif [ ! -f "$GITMAN" ]; then
-    Error "$GITMAN: doesn't exist"
+elif [[ "$FLAG" =~ ^-{0,2}h(elp)?$ ]]; then
+    Usage
+else
+    GITMAN=$GITBASH/$FLAG.sh
 fi
 
-$GITMAN "$@"
+run_subcommand
 
