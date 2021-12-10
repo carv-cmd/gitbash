@@ -45,7 +45,7 @@ run_subcommand () {
     if ! validate_command; then
         Error "$FLAG: doesn't exist"
     else
-        $GITMAN "$ARGS"
+        $GITMAN $ARGS
     fi
 }
 
