@@ -94,7 +94,6 @@ remove_locals () {
 
 remove_remotes () {
     check_remote_origin
-    remove_locals
     if $sh_c "git branch -d -r $ORIGIN/$BRANCH_NAME"; then
         $sh_c "git push $ORIGIN --delete $BRANCH_NAME"
     fi
