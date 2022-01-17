@@ -12,6 +12,11 @@ VISIBILITY=${VISIBILITY:-private}
 LOCAL_GITS=${LOCAL_GITS:-$HOME/git-repos}
 GIT_IGNORE=$GITBASH/template.gitignore
 
+LEGAL=${LEGAL:-}
+if [ ! "$LEGAL" ]; then
+    LEGAL=$GITBASH/LICENSE
+fi
+
 
 Usage () {
     PROGNAME="${0##*/}"
@@ -85,6 +90,12 @@ make_readme () {
     fi
 }
 
+cp_license () {
+    if [[ -e "$LEGAL" && ! -f ./LICENSE ]]; then
+        $sh_c "cp $LEGAL ./LICENSE"
+    fi
+}
+
 cp_gitignore () {
     if [[ -e "$GIT_IGNORE" && ! -f .gitignore ]]; then
         $sh_c "cp $GIT_IGNORE ./.gitignore"
@@ -111,6 +122,7 @@ push_upstream () {
 prepare_repository () {
     checkout_main
     make_readme
+    cp_license
     cp_gitignore
     commit_local_state
 }
